@@ -5,11 +5,9 @@
 	#include "lex.yy.c"
 
 	extern int yylineno;
-	//extern Node* root;
-	Node *root = NULL;
-	//extern int errorNum;
-	int errorNum;
-	//extern void myerror(char *msg);
+	extern Node* root;
+	extern int errorNum;
+	extern void myerror(char *msg);
 	extern void myerror(char *msg);
 	extern void yyerror(char *msg);
 %}
@@ -183,7 +181,7 @@ void myerror(char *msg) {
 void yyerror(char *msg) {
 }
 
-int main(int argc, char **argv) {
+/*int main(int argc, char **argv) {
 	if (argc <= 1) return 1;
 
 	FILE *fp = fopen(argv[1], "r");
@@ -198,4 +196,4 @@ int main(int argc, char **argv) {
 	if (errorNum == 0) printTree(root, 0);
 
 	return 0;
-}
+}*/

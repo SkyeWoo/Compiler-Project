@@ -10,7 +10,7 @@ typedef struct Type_ *Type;
 typedef struct FieldList_ *FieldList;
 
 struct Type_ {
-	enum { BASIC, ARRAY, STRUCTURE } kind;
+	enum { BASIC, ARRAY, STRUCTURE, FUNCTION } kind;
 
 	union {
 		// basic type(INT or FLOAT)
@@ -23,6 +23,13 @@ struct Type_ {
 
 		// structure type itself is a list
 		FieldList structure;
+
+		// function type
+		struct {
+			Type rtnType;
+			FieldList params;
+			int paramNum;
+		} function;
 	} u;
 };
 
@@ -31,5 +38,9 @@ struct FieldList_ {
 	Type type;
 	FieldList tail;
 };
+
+unsigned int hash_pjw(char* name);
+
+void initHashTable();
 
 #endif
