@@ -25,6 +25,4 @@ void addChild(int childsum, Node* parent, ...);
 
 void printTree(Node* root, int blank);
 
-//void traverseTree(Node* root);
-
 #endif

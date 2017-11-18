@@ -53,6 +53,8 @@ ExtDef		: Specifier ExtDecList SEMI { $$ = createNode("ExtDef", ""); addChild(3,
 			| Specifier SEMI { $$ = createNode("ExtDef", ""); addChild(2, $$, $1, $2); }
 			| Specifier error SEMI { myerror("1Syntax error"); }
 			| Specifier FunDec CompSt { $$ = createNode("ExtDef", ""); addChild(3, $$, $1, $2, $3); }
+// REQUIRE 1 function declaration
+			| Specifier FunDec SEMI { $$ = createNode("ExtDef", ""); addChild(3, $$, $1, $2, $3); /* myerror("Syntax error"); */ }
 /*			| error SEMI { myerror"Syntax error"); }*/
 			;
 

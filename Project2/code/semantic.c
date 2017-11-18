@@ -1,64 +1,5 @@
 #include "semantic.h"
 
-unsigned int hash_pjw(char* name) {
-	unsigned int val = 0, i;
-	for (; *name; ++name) {
-		val = (val << 2) + *name;
-		if (i = val & ~0x3fff) val = (val ^ (i >> 12)) & 0x3fff;
-	}
-	return val;
-}
-
-#define HASH_TABLE_SIZE 16384
-FieldList variable_table[HASH_TABLE_SIZE];
-FieldList function_table[HASH_TABLE_SIZE];
-
-void initTable() {
-	for (int i = 0; i < HASH_TABLE_SIZE; i++) {
-		variable_table[HASH_TABLE_SIZE] = NULL;
-		function_table[HASH_TABLE_SIZE] = NULL;
-		//hashTable[i] = NULL;
-	}
-}
-
-
-bool insertSymbol(FieldList f, FieldList* table) {
-	if (f == NULL || f->name == NULL) return false;
-
-	unsigned int key = hash_pjw(f->name);
-
-	// no collision
-	if (table[key] == NULL) {
-		table[key] = f; return true;
-	}
-
-	// collision
-	while (1) {
-		key = (++key) % HASH_TABLE_SIZE;
-		FieldList q = table[key];
-		if (q == NULL) {
-			table[key] = f; return true;
-		}
-	}
-
-	return false;
-}
-
-FieldList searchSymbol(char* name, FieldList* table) {
-	if (name == NULL) return NULL;
-
-	unsigned int key = hash_pjw(name);
-
-	FieldList p = table[key];
-	while (p != NULL) {
-		if (strcmp(name, p->name) == 0) return p;
-		key = (++key) % HASH_TABLE_SIZE;
-		p = table[key];
-	}
-
-	return NULL;
-}
-
 bool TypeEqual(Type type1, Type type2) {
 	if ((type1 == NULL) && (type2 == NULL)) return true;
 	if ((type1 == NULL) || (type2 == NULL)) return false;
@@ -74,9 +15,22 @@ bool TypeEqual(Type type1, Type type2) {
 			return TypeEqual(type1->u.array.elem, type2->u.array.elem);
 			break;
 		case STRUCTURE:
+		{
+			FieldList field1 = type1->u.structure;
+			FieldList field2 = type2->u.structure;
+			if ((field1 != NULL) && (field2 != NULL)) {
+				while ((field1 != NULL) && (field2 != NULL)) {
+					if (TypeEqual(field1->type, field2->type) == false)
+						return false;
+					field1 = field1->tail;
+					field2 = field2->tail;
+				}
+				if ((field1 == NULL) && (field2 == NULL)) return true;
+			}
 			return false;
-			/* TODO */
 			break;
+		}
+// REQUIRE 3
 		case FUNCTION:
 		{
 			if (type1->u.function.paramNum != type2->u.function.paramNum) return false;
@@ -95,12 +49,24 @@ bool TypeEqual(Type type1, Type type2) {
 	}
 }
 
+// REQUIRE 1
+void check_declared_undefined() {
+	for (int i = 0; i < HASH_TABLE_SIZE; i++)
+		if (function_table[i] != NULL) {
+			if (function_table[i]->type->u.function.defined == false) {
+				printf("Error type 18 at Line %d: Undefined function \"%s\".\n", function_table[i]->lineno, function_table[i]->name);
+			}
+		}
+}
+
 void handle_Program(Node* root) {
 	if (root == NULL) return;
 
 	// Program -> ExtDefList
 	if (root->childsum != 0)
 		handle_ExtDefList(root->child[0]);
+
+	check_declared_undefined();
 }
 
 void handle_ExtDefList(Node* root) {
@@ -127,10 +93,16 @@ void handle_ExtDef(Node* root) {
 		handle_ExtDecList(ExtDef->child[1], basic);
 	}
 
-	// ExtDef -> Specifier FunDec CompSt
 	else if (strcmp(ExtDef->child[1]->name, "FunDec") == 0) {
-		handle_FunDec(ExtDef->child[1], ExtDef, basic);
-		handle_CompSt(ExtDef->child[2], basic);
+		// ExtDef -> Specifier FunDec CompSt
+		if (strcmp(ExtDef->child[2]->name, "CompSt") == 0) {
+			// true means defined, false means declared
+			handle_FunDec(ExtDef->child[1], ExtDef, basic, true);
+			handle_CompSt(ExtDef->child[2], basic);
+		}
+// REQUIRE 1
+		// ExtDef -> Specifier FunDec SEMI
+		else handle_FunDec(ExtDef->child[1], ExtDef, basic, false);
 	}
 
 	// Specifier SEMI
@@ -252,8 +224,10 @@ Type handle_Specifier(Node* root) {
 			// OptTag -> ID
 			if (StructSpecifier->child[1] != NULL) {
 				FieldList field = (FieldList)malloc(sizeof(FieldList_));
+				field->lineno = StructSpecifier->lineno;
 				field->type = Specifier;
 				field->name = StructSpecifier->child[1]->child[0]->text; // ID
+				field->lineno = StructSpecifier->lineno;
 				if (searchSymbol(field->name, variable_table) != NULL)
 					printf("Error type 16 at Line %d: Duplicated name \"%s\".\n", root->lineno, field->name);
 				else insertSymbol(field, variable_table);
@@ -275,6 +249,7 @@ FieldList handle_VarDec(Node* root, Type basic) {
 
 	FieldList field = (FieldList)malloc(sizeof(FieldList_));
 	field->name = VarDec->child[0]->text;
+	field->lineno = root->lineno;
 
 	// VarDec -> ID
 	if (i == 0) {
@@ -303,12 +278,14 @@ FieldList handle_VarDec(Node* root, Type basic) {
 	}
 }
 
-void handle_FunDec(Node* root, Node* ExtDef, Type basic) {
+void handle_FunDec(Node* root, Node* ExtDef, Type basic, bool defined) {
 	FieldList field = (FieldList)malloc(sizeof(FieldList_));
 	field->name = root->child[0]->text;
+	field->lineno = root->lineno;
 	Type type = (Type)malloc(sizeof(Type_));
 	type->kind = FUNCTION;
 	type->u.function.rtnType = basic;
+	type->u.function.defined = defined;
 
 	// FunDec -> ID LP RP
 	type->u.function.params = NULL;
@@ -321,15 +298,8 @@ void handle_FunDec(Node* root, Node* ExtDef, Type basic) {
 		// VarList -> ParamDec COMMA VarList
 		while (VarList->childsum == 3) {
 			FieldList ParamDec_VarDec = handle_ParamDec(VarList->child[0], ExtDef);
-			// ParamDec -> Specifier VarDec
-/*			Type Specifier = handle_Specifier(VarList->child[0]->child[0]);
-			FieldList VarDec = handleVarDec(VarList->child[0]->child[1], Specifier);
-			if (searchSymbol(VarDec->name, variable_table) != NULL)
-				printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", ExtDef->lineno, VarDec->name);
-			else insertSymbol(VarDec, variable_table);*/
 			type->u.function.paramNum++;
 			ParamDec_VarDec->tail = type->u.function.params;
-//			VarDec->tail = type->u.function.params;
 			type->u.function.params = ParamDec_VarDec;
 
 			VarList = VarList->child[2];
@@ -343,8 +313,19 @@ void handle_FunDec(Node* root, Node* ExtDef, Type basic) {
 	}
 
 	field->type = type;
-	if (searchSymbol(field->name, function_table) != NULL)
-		printf("Error type 4 at Line %d: Redefined function \"%s\".\n", ExtDef->lineno, field->name);
+
+	FieldList p;
+	if ((p = searchSymbol(field->name, function_table)) != NULL) {
+// REQUIRE 1
+		if (defined == true && p->type->u.function.defined == true) printf("Error type 4 at Line %d: Redefined function \"%s\".\n", ExtDef->lineno, field->name);
+		else {
+			if (defined == true) p->type->u.function.defined = true;
+			bool flag = TypeEqual(p->type, field->type);
+			if (defined == false && flag == false)
+				printf("Error type1 19 at Line %d: Inconsistent declaration of function \"%s\".\n", ExtDef->lineno, field->name);
+
+		}
+	}
 	else insertSymbol(field, function_table);
 }
 
@@ -352,8 +333,13 @@ FieldList handle_ParamDec(Node* root, Node* ExtDef) {
 	// ParamDec -> Specifier VarDec
 	Type Specifier = handle_Specifier(root->child[0]);
 	FieldList VarDec = handle_VarDec(root->child[1], Specifier);
-	if (searchSymbol(VarDec->name, variable_table) != NULL)
-		printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", ExtDef->lineno, VarDec->name);
+	FieldList p;
+	if ((p = searchSymbol(VarDec->name, variable_table)) != NULL) {
+// REQUIRE 1
+		if (TypeEqual(p->type, VarDec->type) == false)
+			printf("Error type2 19 at Line %d: Inconsistent declaration of function \"%s\".\n", root->lineno, VarDec->name);
+	//	printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", ExtDef->lineno, VarDec->name);
+	}
 	else insertSymbol(VarDec, variable_table);
 
 	return VarDec;
@@ -596,6 +582,8 @@ Type handle_Exp(Node* root) {
 		type->kind = FUNCTION;
 		type->u.function.paramNum = 0;
 		type->u.function.params = NULL;
+// REQUIRE 1
+		type->u.function.defined = funcType->u.function.defined;
 
 		// Exp -> ID LP Args RP
 		if (strcmp(root->child[2]->name, "Args") == 0)

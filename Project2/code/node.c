@@ -50,16 +50,3 @@ void printTree(Node* parent, int blank) {
 		else printf("%s\n", parent->name);
 	}
 }
-
-/*void traverseTree(Node* root) {
-	if (root == NULL) return;
-
-	if (strcmp(root->name, "ExtDefList") == 0) {
-		handle_ExtDefList(root);
-		return;
-	}
-
-	else if (root->childsum != 0)
-		for (int i = 0; i < root->childsum; i++)
-			traverseTree(root->child[i]);
-}*/

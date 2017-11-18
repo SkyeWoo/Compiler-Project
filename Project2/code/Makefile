@@ -37,12 +37,12 @@ syntax-c: $(YFILE)
 # 定义的一些伪目标
 .PHONY: clean test
 test:
-	./parser ../pretest/18.txt
-	./parser ../pretest/19.txt
+	#./parser ../pretest/18.txt
+	#./parser ../pretest/19.txt
 	./parser ../pretest/20.txt
 	./parser ../pretest/21.txt
-	./parser ../pretest/22.txt
-	./parser ../pretest/23.txt
+	#./parser ../pretest/22.txt
+	#./parser ../pretest/23.txt
 
 clean:
 	rm -f parser lex.yy.c syntax.tab.c syntax.tab.h syntax.output
