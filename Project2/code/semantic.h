@@ -19,7 +19,9 @@ typedef struct Type_ {
 
 	union {
 		// basic type(INT or FLOAT)
-		int basic;
+		struct {
+			int type; char* name;
+		} basic;
 
 		// array type
 		struct {
@@ -58,13 +60,14 @@ Type handle_Specifier(Node* root);
 FieldList handle_VarDec(Node* root, Type basic);
 void handle_FunDec(Node* root, Node* ExtDef, Type basic);
 FieldList handle_ParamDec(Node* root, Node* ExtDef);
-void handle_CompSt(Node* root, Type basic);
-void handle_StmtList(Node* root, Type basic);
-void handle_Stmt(Node* root, Type basic);
+void handle_CompSt(Node* root, Type rtnType);
+void handle_StmtList(Node* root, Type rtnType);
+void handle_Stmt(Node* root, Type rtnType);
 void handle_DefList(Node* root);
 void handle_Def(Node* root);
 void handle_DecList(Node* root, Type basic);
 void handle_Dec(Node* root, Node* DecList, Type basic);
 Type handle_Exp(Node* root);
+void handle_Args(Node* root, Type* type);
 
 #endif

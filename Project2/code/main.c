@@ -23,7 +23,7 @@ int main(int argc, char** argv) {
 	yyparse();
 
 	if (errorNum == 0) {
-		//printTree(root, 0);
+		printTree(root, 0);
 		initTable();
 		handle_Program(root);
 	}

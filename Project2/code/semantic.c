@@ -59,6 +59,41 @@ FieldList searchSymbol(char* name, FieldList* table) {
 	return NULL;
 }
 
+bool TypeEqual(Type type1, Type type2) {
+	if ((type1 == NULL) && (type2 == NULL)) return true;
+	if ((type1 == NULL) || (type2 == NULL)) return false;
+
+	if (type1->kind != type2->kind) return false;
+
+	switch(type1->kind) {
+		case BASIC:
+			if (type1->u.basic.type == type2->u.basic.type) return true;
+			else return false;
+			break;
+		case ARRAY:
+			return TypeEqual(type1->u.array.elem, type2->u.array.elem);
+			break;
+		case STRUCTURE:
+			/* TODO */
+			break;
+		case FUNCTION:
+		{
+			if (type1->u.function.paramNum != type2->u.function.paramNum) return false;
+			FieldList param1 = type1->u.function.params,
+					  param2 = type2->u.function.params;
+			for (int i = 0; i < type1->u.function.paramNum; i++) {
+				if (TypeEqual(param1->type, param2->type) == false)
+					return false;
+				param1 = param1->tail;
+				param2 = param2->tail;
+			}
+			return true;
+			break;
+		}
+		default: return false; break;
+	}
+}
+
 void handle_Program(Node* root) {
 	if (root == NULL) return;
 
@@ -128,11 +163,10 @@ Type handle_Specifier(Node* root) {
 	if (strcmp(root->child[0]->name, "TYPE") == 0) {
 		Specifier->kind = BASIC;
 		if (strcmp(root->child[0]->text, "int") == 0)
-			Specifier->u.basic = INT;
-		else Specifier->u.basic = FLOAT;
+			Specifier->u.basic.type = INT;
+		else Specifier->u.basic.type = FLOAT;
 		return Specifier;
 	}
-	/* TODO Specifier -> Structure */
 }
 
 FieldList handle_VarDec(Node* root, Type basic) {
@@ -230,25 +264,25 @@ FieldList handle_ParamDec(Node* root, Node* ExtDef) {
 	return VarDec;
 }
 
-void handle_CompSt(Node* root, Type basic) {
+void handle_CompSt(Node* root, Type rtnType) {
 	Node* CompSt = root;
 
 	// CompSt -> LC DefList StmtList RC
 	handle_DefList(CompSt->child[1]);
-	handle_StmtList(CompSt->child[2], basic);
+	handle_StmtList(CompSt->child[2], rtnType);
 }
 
-void handle_StmtList(Node* root, Type basic) {
+void handle_StmtList(Node* root, Type rtnType) {
 	Node* StmtList = root;
 
 	// StmtList -> Stmt StmtList
 	while (StmtList != NULL) {
-		handle_Stmt(StmtList->child[0], basic);
+		handle_Stmt(StmtList->child[0], rtnType);
 		StmtList = StmtList->child[1];
 	}
 }
 
-void handle_Stmt(Node* root, Type basic) {
+void handle_Stmt(Node* root, Type rtnType) {
 	Node* Stmt = root;
 
 	// Stmt -> Exp SEMI
@@ -257,26 +291,40 @@ void handle_Stmt(Node* root, Type basic) {
 
 	// Stmt -> CompSt
 	else if (strcmp(Stmt->child[0]->name, "CompSt") == 0)
-		handle_CompSt(Stmt->child[0], basic);
+		handle_CompSt(Stmt->child[0], rtnType);
 	
 	// Stmt -> RETURN Exp SEMI
 	else if (strcmp(Stmt->child[0]->name, "RETURN") == 0) {
-		/* TODO error */
+		Type tempRtnType = handle_Exp(Stmt->child[1]);
+		if (TypeEqual(rtnType, tempRtnType) == false)
+			printf("Error type 8 at Line %d: Type mismatched for return.\n", Stmt->lineno);
 	}
 
 	// Stmt -> WHILE LP Exp RP Stmt
 	else if (strcmp(Stmt->child[0]->name, "WHILE") == 0) {
-			/* TODO */
+		Type type = handle_Exp(Stmt->child[2]);
+		if (!((type->kind == BASIC) && (type->u.basic.type == INT)))
+			printf("Error type 5 at Line %d: Only type INT could be used for judgement.\n", Stmt->lineno);
+		handle_Stmt(Stmt->child[4], rtnType);
 	}
 
 	// Stmt -> IF LP Exp RP Stmt
 	else if (Stmt->childsum == 5) {
-			/* TODO */
+		Type type = handle_Exp(Stmt->child[2]);
+		if (type != NULL)
+			if (!((type->kind == BASIC) && (type->u.basic.type == INT)))
+				printf("Error type 5 at Line %d: Only type INT could be used for judgement.\n", Stmt->lineno);
+
+		handle_Stmt(Stmt->child[4], rtnType);
 	}
 
 	// Stmt -> IF LP Exp RP Stmt ELSE Stmt 
 	else {
-			/* TODO */
+		Type type = handle_Exp(Stmt->child[2]);
+		if (!((type->kind == BASIC) && (type->u.basic.type == INT)))
+			printf("Error type 5 at Line %d: Only type INT could be used for judgement.\n", Stmt->lineno);
+		handle_Stmt(Stmt->child[4], rtnType);
+		handle_Stmt(Stmt->child[6], rtnType);
 	}
 }
 
@@ -325,5 +373,248 @@ void handle_Dec(Node* root, Node* DecList, Type basic) {
 }
 
 Type handle_Exp(Node* root) {
-	return NULL;
+	if (root == NULL) return NULL;
+
+	// handle orderd by paramsNum
+
+	// Exp -> ID
+	if ((strcmp(root->child[0]->name, "ID") == 0) && (root->childsum == 1)) {
+		FieldList field = searchSymbol(root->child[0]->text, variable_table);
+		if (field != NULL) return field->type;
+		else {
+			printf("Error type 1 at Line %d: Undefined variable \"%s\".\n", root->lineno, root->child[0]->text);
+			return NULL;
+		}
+	}
+
+	// Exp -> INT
+	else if (strcmp(root->child[0]->name, "INT") == 0) {
+		Type type = (Type)malloc(sizeof(Type_));
+		type->kind = BASIC;
+		type->u.basic.type = INT;
+		type->u.basic.name = root->child[0]->text;
+		return type;
+	}
+
+	// Exp -> FLOAT
+	else if (strcmp(root->child[0]->name, "FLOAT") == 0) {
+		Type type = (Type)malloc(sizeof(Type_));
+		type->kind = BASIC;
+		type->u.basic.type = FLOAT;
+		type->u.basic.name = root->child[0]->text;
+		return type;
+	}
+
+	// Exp -> Exp ASSIGNOP Exp
+	else if (strcmp(root->child[1]->name, "ASSIGNOP") == 0) {
+		if (root->child[0]->childsum == 1) {
+			// subExp -> INT / FLOAT
+			if (!(strcmp(root->child[0]->child[0]->name, "ID") == 0)) {
+				printf("Error type 6 at Line %d: The left-hand side of an assignment must be a variable.\n", root->lineno);
+				return NULL;
+			}
+			// subExp -> ID
+			else {}
+		}
+		else if (root->child[0]->childsum == 3) {
+			if (!((strcmp(root->child[0]->child[0]->name, "Exp") == 0) && (strcmp(root->child[0]->child[1]->name, "DOT") == 0) && (strcmp(root->child[0]->child[2]->name, "ID") == 0))) {
+				printf("Error type 6 at Line %d: The left-hand side of an assignemnt must be a variable.\n", root->lineno);
+				return NULL;
+			}
+			// subExp -> Exp DOT ID
+			else {}
+		}
+		else if (root->child[0]->childsum == 4) {
+			if (!((strcmp(root->child[0]->child[0]->name, "Exp") == 0) && (strcmp(root->child[0]->child[1]->name, "LB") == 0) && (strcmp(root->child[0]->child[2]->name, "Exp") == 0) && (strcmp(root->child[0]->child[3]->name, "RB") == 0))) {
+				printf("Error type 6 at Line %d: The left-hand side of an assignment must be a variable.\n", root->lineno);
+				return NULL;
+			}
+			// subExp -> Exp LB Exp RB
+			else {}
+		}
+
+		// TODO: bug!!
+		Type left = handle_Exp(root->child[0]),
+			 right = handle_Exp(root->child[2]);
+		if (TypeEqual(left, right) == false) {
+			if ((left != NULL) && (right != NULL))
+				printf("Error type 5 at Line %d: Type mismatched for assignment.\n", root->lineno);
+			return NULL;
+		}
+		else return left;
+	}
+	
+	// Exp -> Exp AND Exp
+	// Exp -> Exp OR Exp
+	// Exp -> Exp RELOP Exp
+	else if ((strcmp(root->child[1]->name, "AND") == 0) || (strcmp(root->child[1]->name, "OR") == 0) || (strcmp(root->child[1]->name, "RELOP") == 0)) {
+		Type left = handle_Exp(root->child[0]),
+			 right = handle_Exp(root->child[2]);
+		if (TypeEqual(left, right) == false) {
+			if ((left != NULL) && (right != NULL))
+				printf("Error type 7 at Line %d: Type mismatched for operands.\n", root->lineno);
+			return NULL;
+		}
+		else {
+			Type type = (Type)malloc(sizeof(Type_));
+			type->kind = BASIC;
+			type->u.basic.type = INT;
+			return type;
+		}
+	}
+
+	// Exp -> Exp PLUS Exp
+	// Exp -> Exp MINUS Exp
+	// Exp -> Exp STAR Exp
+	// Exp -> Exp DIV Exp
+	else if ((strcmp(root->child[1]->name, "PLUS") == 0) || (strcmp(root->child[1]->name, "MINUS") == 0) || (strcmp(root->child[1]->name, "STAR") == 0) || (strcmp(root->child[1]->name, "DIV") == 0)) {
+		Type left = handle_Exp(root->child[0]),
+			 right = handle_Exp(root->child[2]);
+		if (TypeEqual(left, right) == false) {
+			if ((left != NULL) && (right != NULL))
+				printf("Error type 7 at Line %d: Type mismatched for operands.\n", root->lineno);
+			return NULL;
+		}
+		else return left;
+	}
+
+	// Exp -> LP Exp RP
+	// Exp -> MINUS Exp
+	// Exp -> NOT Exp
+	else if ((strcmp(root->child[0]->name, "LP") == 0) || (strcmp(root->child[0]->name, "MINUS") == 0) || (strcmp(root->child[0]->name, "NOT") == 0))
+		return handle_Exp(root->child[1]);
+
+	// Exp -> ID LP RP
+	// Exp -> ID LP Args RP
+	else if (strcmp(root->child[0]->name, "ID") == 0) {
+		FieldList field = searchSymbol(root->child[0]->text, function_table);
+		if (field == NULL) {
+			FieldList f = searchSymbol(root->child[0]->text, variable_table);
+			if (f != NULL)
+				printf("Error type 11 at Line %d: \"%s\" is not a function.\n", root->lineno, root->child[0]->text);
+			else printf("Error type 2 at Line %d: Undefined function \"%s\".\n", root->lineno, root->child[0]->text);
+			return NULL;
+		}
+
+		Type funcType = field->type;
+		Type type = (Type)malloc(sizeof(Type_));
+		type->kind = FUNCTION;
+		type->u.function.paramNum = 0;
+		type->u.function.params = NULL;
+
+		// Exp -> ID LP Args RP
+		if (strcmp(root->child[2]->name, "Args") == 0)
+			handle_Args(root->child[2], &type);
+
+		if (TypeEqual(type, funcType) == false) {
+			printf("Error type 9 at Line %d: Params mismatched in function \"%s\".\n", root->lineno, root->child[0]->text);
+			return NULL;
+		}
+
+		else return funcType->u.function.rtnType;
+	}
+
+	// Exp -> Exp LB Exp RB
+	else if (strcmp(root->child[1]->name, "LB") == 0) {
+		Type Exp = handle_Exp(root->child[0]);
+		if (Exp->kind != ARRAY) {
+			Node* temp = root->child[0];
+			char* s;
+
+			switch(temp->childsum) {
+				case 1: // Exp -> ID
+					if (strcmp(temp->child[0]->name, "ID") == 0)
+						s = temp->child[0]->text;
+					break;
+				case 3: // Exp -> Exp DOT ID
+					if (strcmp(temp->child[2]->name, "ID") == 0)
+						s = temp->child[0]->text;
+					break;
+				case 4:
+					if (strcmp(temp->child[0]->name, "Exp") == 0)
+						if (strcmp(temp->child[0]->child[0]->name, "ID") == 0)
+							s = temp->child[0]->child[0]->text;
+					break;
+				default: printf("no more operation 1\n"); break;
+			}
+
+			if (searchSymbol(s, variable_table) != NULL)
+				printf("Error type 10 at Line %d: \"%s\" is not an array.\n", root->lineno, s);
+			return NULL;
+		}
+
+		Type Exp2 = handle_Exp(root->child[2]);
+		if (Exp2->kind != BASIC || (Exp2->kind == BASIC && Exp2->u.basic.type != INT)) {
+			printf("Error type 12 at Line %d: \"%s\" is not an integer.\n", root->lineno, Exp2->u.basic.name);
+			return NULL;
+		}
+
+		return Exp->u.array.elem;
+	}
+
+	// Exp -> Exp DOT ID
+	else if (strcmp(root->child[1]->name, "DOT") == 0) {
+		Type Exp = handle_Exp(root->child[0]);
+		if (Exp->kind != STRUCTURE) {
+			Node* temp = root->child[0];
+			char* s;
+			switch(temp->childsum) {
+				case 1: // subExp -> ID
+					if (strcmp(temp->child[0]->name, "ID") == 0)
+						s = temp->child[0]->text;
+					break;
+				case 3: // subExp -> Exp DOT ID
+					if (strcmp(temp->child[2]->name, "ID") == 0)
+						s = temp->child[0]->text;
+					break;
+				case 4: // subExp -> Exp LB Exp RB
+					if (strcmp(temp->child[0]->name, "Exp") == 0)
+						if (strcmp(temp->child[0]->child[0]->name, "ID") == 0)
+							s = temp->child[0]->child[0]->text;
+					break;
+				default: printf("no more operation\n"); break;
+			}
+			
+			if (searchSymbol(s, variable_table) != NULL)
+				printf("Error type 13 at Line %d: Illegal use of \".\".\n", root->lineno);
+			return NULL;
+		}
+
+		char* s = root->child[2]->text;
+		FieldList temp = Exp->u.structure;
+		while (temp != NULL) {
+			if (strcmp(temp->name, s) == 0) return temp->type;
+			temp = temp->tail;
+		}
+
+		printf("Error type 14 at Line %d: Non-existent field \"%s\".\n", root->lineno, root->child[2]->text);
+		return NULL;
+	}
+
+	// no error!
+	else return NULL;
+}
+
+void handle_Args(Node* root, Type* type) {
+	Node* Args = root;
+
+	// Args -> Exp COMMA Args
+	while (Args->childsum != 1) {
+		Type Exp = handle_Exp(Args->child[0]);
+		FieldList field = (FieldList)malloc(sizeof(FieldList_));
+		field->type = Exp;
+		field->tail = (*type)->u.function.params;
+		(*type)->u.function.paramNum++;
+		(*type)->u.function.params = field;
+
+		Args = Args->child[2];
+	}
+
+	// Args -> Exp
+	Type Exp = handle_Exp(Args->child[0]);
+	FieldList field = (FieldList)malloc(sizeof(FieldList_));
+	field->type = Exp;
+	field->tail = (*type)->u.function.params;
+	(*type)->u.function.paramNum++;
+	(*type)->u.function.params = field;
 }
