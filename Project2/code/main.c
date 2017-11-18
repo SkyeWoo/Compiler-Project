@@ -24,7 +24,8 @@ int main(int argc, char** argv) {
 
 	if (errorNum == 0) {
 		//printTree(root, 0);
-		initHashTable();
+		initTable();
+		handle_Program(root);
 	}
 
 	return 0;

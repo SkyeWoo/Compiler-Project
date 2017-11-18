@@ -6,8 +6,13 @@
 #include <string.h>
 #include "node.h"
 
+typedef enum { false, true } bool;
+
 typedef struct Type_ *Type;
 typedef struct FieldList_ *FieldList;
+
+#define INT 1
+#define FLOAT 2
 
 struct Type_ {
 	enum { BASIC, ARRAY, STRUCTURE, FUNCTION } kind;
@@ -41,6 +46,11 @@ struct FieldList_ {
 
 unsigned int hash_pjw(char* name);
 
-void initHashTable();
+void initTable();
+bool insertSymbol(FieldList f, FieldList* table);
+FieldList searchSymbol(char* name, FieldList* table);
+
+void handle_Program(Node* root);
+void handle_ExtDefList(Node* root);
 
 #endif

@@ -7,7 +7,6 @@ Node* createNode(char *name, char* text) {
 	strcpy(p->text, text);
 	
 	p->lineno = yylineno;
-//	p->parent = NULL;
 	int i = 0;
 	for (; i < MAX_CHILD_NUM; i++)
 		p->child[i] = NULL;
@@ -22,16 +21,9 @@ void addChild(int childsum, Node* parent, ...) {
 	va_start(ap, parent);
 	
 	int i = 0;
-	for (; i < childsum; i++) {
+	for (; i < childsum; i++)
 		parent->child[i] = va_arg(ap, Node*);
-//		parent->child[i]->parent = parent;
-	}
 
-//	parent->child[0]->parent = NULL;
-	
-	//for (i = 0; i < childsum; i++)
-	//	parent->child[0]->parent = NULL;
-	
 	parent->lineno = parent->child[0]->lineno;
 	parent->childsum = childsum;
 	va_end(ap);
@@ -58,3 +50,16 @@ void printTree(Node* parent, int blank) {
 		else printf("%s\n", parent->name);
 	}
 }
+
+/*void traverseTree(Node* root) {
+	if (root == NULL) return;
+
+	if (strcmp(root->name, "ExtDefList") == 0) {
+		handle_ExtDefList(root);
+		return;
+	}
+
+	else if (root->childsum != 0)
+		for (int i = 0; i < root->childsum; i++)
+			traverseTree(root->child[i]);
+}*/
