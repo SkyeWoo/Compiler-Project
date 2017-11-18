@@ -8,13 +8,13 @@
 
 typedef enum { false, true } bool;
 
-typedef struct Type_ *Type;
-typedef struct FieldList_ *FieldList;
+typedef struct Type_* Type;
+typedef struct FieldList_* FieldList;
 
 #define INT 1
 #define FLOAT 2
 
-struct Type_ {
+typedef struct Type_ {
 	enum { BASIC, ARRAY, STRUCTURE, FUNCTION } kind;
 
 	union {
@@ -36,13 +36,13 @@ struct Type_ {
 			int paramNum;
 		} function;
 	} u;
-};
+} Type_;
 
-struct FieldList_ {
+typedef struct FieldList_ {
 	char* name;
 	Type type;
 	FieldList tail;
-};
+} FieldList_;
 
 unsigned int hash_pjw(char* name);
 
@@ -52,5 +52,19 @@ FieldList searchSymbol(char* name, FieldList* table);
 
 void handle_Program(Node* root);
 void handle_ExtDefList(Node* root);
+void handle_ExtDef(Node* root);
+void handle_ExtDecList(Node* root, Type basic);
+Type handle_Specifier(Node* root);
+FieldList handle_VarDec(Node* root, Type basic);
+void handle_FunDec(Node* root, Node* ExtDef, Type basic);
+FieldList handle_ParamDec(Node* root, Node* ExtDef);
+void handle_CompSt(Node* root, Type basic);
+void handle_StmtList(Node* root, Type basic);
+void handle_Stmt(Node* root, Type basic);
+void handle_DefList(Node* root);
+void handle_Def(Node* root);
+void handle_DecList(Node* root, Type basic);
+void handle_Dec(Node* root, Node* DecList, Type basic);
+Type handle_Exp(Node* root);
 
 #endif
