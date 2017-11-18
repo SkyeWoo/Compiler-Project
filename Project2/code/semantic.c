@@ -74,6 +74,7 @@ bool TypeEqual(Type type1, Type type2) {
 			return TypeEqual(type1->u.array.elem, type2->u.array.elem);
 			break;
 		case STRUCTURE:
+			return false;
 			/* TODO */
 			break;
 		case FUNCTION:
@@ -166,6 +167,100 @@ Type handle_Specifier(Node* root) {
 			Specifier->u.basic.type = INT;
 		else Specifier->u.basic.type = FLOAT;
 		return Specifier;
+	}
+	
+	// Specifier -> StructSpecifier
+	else {
+		Specifier->kind = STRUCTURE;
+		Node* StructSpecifier = root->child[0];
+	
+		// StructSpecifier -> STRUCT Tag
+		if (StructSpecifier->childsum == 2) {
+			char* s = StructSpecifier->child[1]->child[0]->text; // ID
+			FieldList field = searchSymbol(s, variable_table);
+			if (field == NULL) {
+				printf("Error type 17 at Line %d: Undefined structure \"%s\".\n", root->lineno, s);
+				Specifier->u.structure = NULL;
+				return Specifier;
+			}
+			else if (field->type != NULL)
+				return field->type;
+			Specifier->u.structure = NULL;
+			return Specifier;
+		}
+
+		// StructSpecifier -> STRUCT OptTag LC DefList RC
+		else {
+			Node* DefList = root->child[0]->child[3];
+			Specifier->u.structure = NULL;
+
+			// DefList -> Def DefList
+			while (DefList != NULL) {
+				Node* Def = DefList->child[0];
+				Type basic = handle_Specifier(Def->child[0]);
+
+				Node* DecList = Def->child[1];
+				// DecList -> Dec COMMA DecList
+				while (DecList->childsum == 3) {
+					FieldList field = handle_VarDec(DecList->child[0]->child[0], Specifier);
+					if (DecList->child[0]->childsum != 1)
+						printf("Error type 15 at Line %d: Variable %s in struct is initialized.\n", Def->lineno, field->name);
+					FieldList temp = Specifier->u.structure;
+					while (temp != NULL) {
+						if (strcmp(temp->name, field->name) == 0) {
+							printf("Error type 15 at Line %d: Redefined field \"%s\".\n", Def->lineno, field->name);
+							break;
+						}
+						temp = temp->tail;
+					}
+
+					if (temp == NULL) {
+						if (searchSymbol(field->name, variable_table) != NULL)
+							printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", Def->lineno, field->name);
+						else {
+							insertSymbol(field, variable_table);
+							field->tail = Specifier->u.structure;
+							Specifier->u.structure = field;
+						}
+					}
+					DecList = DecList->child[2];
+				}
+
+				FieldList field = handle_VarDec(DecList->child[0]->child[0], basic);
+				if (DecList->child[0]->childsum != 1)
+					printf("Error type 15 at Line %d: Variable \"%s\" in struct is initialized.\n", Def->lineno, field->name);
+				FieldList temp = Specifier->u.structure;
+				while (temp != NULL) {
+					if (strcmp(temp->name, field->name) == 0) {
+						printf("Error type 15 at Line %d: Redefined field \"%s\".\n", Def->lineno, field->name);
+						break;
+					}
+					temp = temp->tail;
+				}
+				if (temp == NULL) {
+					if (searchSymbol(field->name, variable_table) != NULL)
+						printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", Def->lineno, field->name);
+					else {
+						insertSymbol(field, variable_table);
+						field->tail = Specifier->u.structure;
+						Specifier->u.structure = field;
+					}
+				}
+				DefList = DefList->child[1];
+			}
+
+			// OptTag -> ID
+			if (StructSpecifier->child[1] != NULL) {
+				FieldList field = (FieldList)malloc(sizeof(FieldList_));
+				field->type = Specifier;
+				field->name = StructSpecifier->child[1]->child[0]->text; // ID
+				if (searchSymbol(field->name, variable_table) != NULL)
+					printf("Error type 16 at Line %d: Duplicated name \"%s\".\n", root->lineno, field->name);
+				else insertSymbol(field, variable_table);
+			}
+
+			return Specifier;
+		}
 	}
 }
 
