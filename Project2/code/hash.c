@@ -23,7 +23,9 @@ bool insertSymbol(SymbolList s, SymbolList* table) {
 
 	// no collision
 	if (table[key] == NULL) {
-		table[key] = s; return true;
+		table[key] = s;
+		table[key]->dead = false;
+		return true;
 	}
 
 	// collision
@@ -45,7 +47,7 @@ SymbolList searchSymbol(char* name, SymbolList* table) {
 
 	SymbolList p = table[key];
 	while (p != NULL && p->field != NULL) {
-		if (strcmp(name, p->field->name) == 0) return p;
+		if (strcmp(name, p->field->name) == 0 && p->dead == false) return p;
 		key = (++key) % HASH_TABLE_SIZE;
 		p = table[key];
 	}

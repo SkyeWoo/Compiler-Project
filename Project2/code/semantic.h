@@ -51,8 +51,11 @@ typedef struct FieldList_ {
 } FieldList_;
 
 typedef struct SymbolList_ {
-	int lineno;
 	FieldList field;
+	int lineno;
+// REQUIRE 2
+	int depth;
+	bool dead;
 } SymbolList_;
 
 unsigned int hash_pjw(char* name);

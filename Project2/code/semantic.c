@@ -1,5 +1,7 @@
 #include "semantic.h"
 
+int depth;
+
 bool VarTypeEqual(VarType type1, VarType type2) {
 	if ((type1 == NULL) && (type2 == NULL)) return true;
 	if ((type1 == NULL) || (type2 == NULL)) return false;
@@ -60,6 +62,8 @@ void check_declared_undefined() {
 
 void handle_Program(Node* root) {
 	if (root == NULL) return;
+
+	depth = 0;
 
 	// Program -> ExtDefList
 	if (root->childsum != 0)
@@ -166,6 +170,23 @@ VarType handle_Specifier(Node* root) {
 			Node* DefList = root->child[0]->child[3];
 			Specifier->u.structure = NULL;
 
+// OptTag -> ID
+			if (StructSpecifier->child[1] != NULL) {
+				SymbolList symbol = (SymbolList)malloc(sizeof(SymbolList_));
+				symbol->field = (FieldList)malloc(sizeof(FieldList_));
+				symbol->depth = depth;
+				symbol->lineno = StructSpecifier->lineno;
+				symbol->field->type.variable = Specifier;
+				symbol->field->name = StructSpecifier->child[1]->child[0]->text; // ID
+				if (searchSymbol(symbol->field->name, variable_table) != NULL)
+					printf("Error type 16 at Line %d: Duplicated name \"%s\".\n", root->lineno, symbol->field->name);
+				else insertSymbol(symbol, variable_table);
+			}
+			/* TODO <anoymous name> struct */
+
+// REQUIRE 2
+			depth++;
+
 			// DefList -> Def DefList
 			while (DefList != NULL) {
 				Node* Def = DefList->child[0];
@@ -175,6 +196,7 @@ VarType handle_Specifier(Node* root) {
 				// DecList -> Dec COMMA DecList
 				while (DecList->childsum == 3) {
 					SymbolList symbol = handle_VarDec(DecList->child[0]->child[0], Specifier);
+					symbol->depth = depth;
 					if (DecList->child[0]->childsum != 1)
 						printf("Error type 15 at Line %d: Variable %s in struct is initialized.\n", Def->lineno, symbol->field->name);
 					FieldList temp = Specifier->u.structure;
@@ -199,6 +221,7 @@ VarType handle_Specifier(Node* root) {
 				}
 
 				SymbolList symbol = handle_VarDec(DecList->child[0]->child[0], basic);
+				symbol->depth = depth;
 				if (DecList->child[0]->childsum != 1)
 					printf("Error type 15 at Line %d: Variable \"%s\" in struct is initialized.\n", Def->lineno, symbol->field->name);
 				FieldList temp = Specifier->u.structure;
@@ -221,18 +244,10 @@ VarType handle_Specifier(Node* root) {
 				DefList = DefList->child[1];
 			}
 
-			// OptTag -> ID
-			if (StructSpecifier->child[1] != NULL) {
-				SymbolList symbol = (SymbolList)malloc(sizeof(SymbolList_));
-				symbol->field = (FieldList)malloc(sizeof(FieldList_));
-				symbol->lineno = StructSpecifier->lineno;
-				symbol->field->type.variable = Specifier;
-				symbol->field->name = StructSpecifier->child[1]->child[0]->text; // ID
-				if (searchSymbol(symbol->field->name, variable_table) != NULL)
-					printf("Error type 16 at Line %d: Duplicated name \"%s\".\n", root->lineno, symbol->field->name);
-				else insertSymbol(symbol, variable_table);
-			}
-			/* TODO <anoymous name> struct */
+			for (int i = 0; i < HASH_TABLE_SIZE; i++)
+				if (variable_table[i] != NULL)
+					if (variable_table[i]->depth == depth) variable_table[i]->dead = true;
+			depth--;
 
 			return Specifier;
 		}
@@ -250,6 +265,7 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 
 	SymbolList symbol = (SymbolList)malloc(sizeof(SymbolList_));
 	symbol->field = (FieldList)malloc(sizeof(FieldList_));
+	symbol->depth = depth;
 	symbol->field->name = VarDec->child[0]->text;
 	symbol->lineno = root->lineno;
 
@@ -283,6 +299,7 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 void handle_FunDec(Node* root, Node* ExtDef, VarType basic, bool defined) {
 	SymbolList symbol = (SymbolList)malloc(sizeof(SymbolList_));
 	symbol->field = (FieldList)malloc(sizeof(FieldList_));
+	symbol->depth = depth;
 	symbol->field->name = root->child[0]->text;
 	symbol->lineno = root->lineno;
 	FuncType type = (FuncType)malloc(sizeof(FuncType_));
@@ -350,8 +367,13 @@ void handle_CompSt(Node* root, VarType rtnType) {
 	Node* CompSt = root;
 
 	// CompSt -> LC DefList StmtList RC
+	depth++;
 	handle_DefList(CompSt->child[1]);
 	handle_StmtList(CompSt->child[2], rtnType);
+	for (int i = 0; i < HASH_TABLE_SIZE; i++)
+		if (variable_table[i] != NULL)
+			if (variable_table[i]->depth == depth) variable_table[i]->dead = true;
+	depth--;
 }
 
 void handle_StmtList(Node* root, VarType rtnType) {
