@@ -16,4 +16,4 @@ if __name__ == "__main__":
 
 	for case in test_files:
 		output = subprocess.check_output("./parser %s%s.txt" %(test_dir, str(case)), shell = True)
-		print "case %d: %s" %(case, output),
+		print "case %d: %s" %(case, output)

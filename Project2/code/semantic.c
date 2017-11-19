@@ -14,6 +14,7 @@ bool VarTypeEqual(VarType type1, VarType type2) {
 			else return false;
 			break;
 		case ARRAY:
+			if (type1->u.array.size != type2->u.array.size) return false;
 			return VarTypeEqual(type1->u.array.elem, type2->u.array.elem);
 			break;
 		case STRUCTURE:
@@ -120,7 +121,8 @@ void handle_ExtDecList(Node* root, VarType basic) {
 	// ExtDecList -> VarDec COMMA ExtDecList
 	while (ExtDecList->childsum == 3) {
 		symbol = handle_VarDec(ExtDecList->child[0], basic);
-		if (searchSymbol(symbol->field->name, variable_table) != NULL)
+		SymbolList p;
+		if ((p = searchSymbol(symbol->field->name, variable_table)) != NULL && p->depth >= depth)
 			printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", ExtDecList->lineno, symbol->field->name);
 		else insertSymbol(symbol, variable_table);
 		ExtDecList = ExtDecList->child[2];
@@ -128,7 +130,8 @@ void handle_ExtDecList(Node* root, VarType basic) {
 
 	// ExtDecList -> VarDec
 	symbol = handle_VarDec(ExtDecList->child[0], basic);
-	if (searchSymbol(symbol->field->name, variable_table) != NULL)
+	SymbolList p;
+	if ((p = searchSymbol(symbol->field->name, variable_table)) != NULL && p->depth >= depth)
 		printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", ExtDecList->lineno, symbol->field->name);
 	else insertSymbol(symbol, variable_table);
 }
@@ -178,7 +181,8 @@ VarType handle_Specifier(Node* root) {
 				symbol->lineno = StructSpecifier->lineno;
 				symbol->field->type.variable = Specifier;
 				symbol->field->name = StructSpecifier->child[1]->child[0]->text; // ID
-				if (searchSymbol(symbol->field->name, variable_table) != NULL)
+				SymbolList p;
+				if ((p = searchSymbol(symbol->field->name, variable_table)) != NULL && (p->depth >= depth || p->field->type.variable->kind == STRUCTURE))
 					printf("Error type 16 at Line %d: Duplicated name \"%s\".\n", root->lineno, symbol->field->name);
 				else insertSymbol(symbol, variable_table);
 			}
@@ -198,18 +202,20 @@ VarType handle_Specifier(Node* root) {
 					SymbolList symbol = handle_VarDec(DecList->child[0]->child[0], Specifier);
 					symbol->depth = depth;
 					if (DecList->child[0]->childsum != 1)
-						printf("Error type 15 at Line %d: Variable %s in struct is initialized.\n", Def->lineno, symbol->field->name);
+							/*TODO: bug! Def->lineno */
+						printf("Error type 15 at Line %d: Variable %s in struct is initialized.\n", symbol->lineno, symbol->field->name);
 					FieldList temp = Specifier->u.structure;
 					while (temp != NULL) {
 						if (strcmp(temp->name, symbol->field->name) == 0) {
-							printf("Error type 15 at Line %d: Redefined field \"%s\".\n", Def->lineno, symbol->field->name);
+							printf("Error type 15 at Line %d: Redefined field \"%s\".\n", symbol->lineno, symbol->field->name);
 							break;
 						}
 						temp = temp->tail;
 					}
 
 					if (temp == NULL) {
-						if (searchSymbol(symbol->field->name, variable_table) != NULL)
+						SymbolList p;
+						if ((p = searchSymbol(symbol->field->name, variable_table)) != NULL && p->depth >= depth)
 							printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", Def->lineno, symbol->field->name);
 						else {
 							insertSymbol(symbol, variable_table);
@@ -223,17 +229,19 @@ VarType handle_Specifier(Node* root) {
 				SymbolList symbol = handle_VarDec(DecList->child[0]->child[0], basic);
 				symbol->depth = depth;
 				if (DecList->child[0]->childsum != 1)
-					printf("Error type 15 at Line %d: Variable \"%s\" in struct is initialized.\n", Def->lineno, symbol->field->name);
+						/* TODO: fix bug! Def->lineno*/
+					printf("Error type 15 at Line %d: Variable \"%s\" in struct is initialized.\n", symbol->lineno, symbol->field->name);
 				FieldList temp = Specifier->u.structure;
 				while (temp != NULL) {
 					if (strcmp(temp->name, symbol->field->name) == 0) {
-						printf("Error type 15 at Line %d: Redefined field \"%s\".\n", Def->lineno, symbol->field->name);
+						printf("Error type 15 at Line %d: Redefined field \"%s\".\n", symbol->lineno, symbol->field->name);
 						break;
 					}
 					temp = temp->tail;
 				}
 				if (temp == NULL) {
-					if (searchSymbol(symbol->field->name, variable_table) != NULL)
+					SymbolList p;
+					if ((p = searchSymbol(symbol->field->name, variable_table)) != NULL && p->depth >= depth)
 						printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", Def->lineno, symbol->field->name);
 					else {
 						insertSymbol(symbol, variable_table);
@@ -246,7 +254,7 @@ VarType handle_Specifier(Node* root) {
 
 			for (int i = 0; i < HASH_TABLE_SIZE; i++)
 				if (variable_table[i] != NULL)
-					if (variable_table[i]->depth == depth) variable_table[i]->dead = true;
+					if (variable_table[i]->depth == depth && variable_table[i]->field->type.variable->kind != STRUCTURE) variable_table[i]->dead = true;
 			depth--;
 
 			return Specifier;
@@ -275,6 +283,7 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 		return symbol;
 	}
 
+	// VarDec -> VarDec LB INT RB
 	VarType var1 = (VarType)malloc(sizeof(VarType_));
 	var1->kind = ARRAY;
 	var1->u.array.size = atoi(root->child[2]->text);
@@ -284,6 +293,8 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 		case 1: 
 			symbol->field->type.variable = var1;
 			return symbol;
+
+		// VarDec LB INT RB LB INT RB
 		case 2: {
 			VarType var2 = (VarType)malloc(sizeof(VarType_));
 			var2->kind = ARRAY;
@@ -401,7 +412,7 @@ void handle_Stmt(Node* root, VarType rtnType) {
 	else if (strcmp(Stmt->child[0]->name, "RETURN") == 0) {
 		VarType tempRtnType = handle_Exp(Stmt->child[1]);
 		if (VarTypeEqual(rtnType, tempRtnType) == false)
-			printf("Error type 8 at Line %d: VarType mismatched for return.\n", Stmt->lineno);
+			printf("Error type 8 at Line %d: Type mismatched for return.\n", Stmt->lineno);
 	}
 
 	// Stmt -> WHILE LP Exp RP Stmt
@@ -469,7 +480,8 @@ void handle_Dec(Node* root, Node* DecList, VarType basic) {
 
 	// Dec -> VarDec
 	SymbolList symbol = handle_VarDec(root->child[0], basic);
-	if (searchSymbol(symbol->field->name, variable_table) != NULL)
+	SymbolList p;
+	if ((p = searchSymbol(symbol->field->name, variable_table)) != NULL && p->depth >= depth)
 		printf("Error type 3 at Line %d: Redefined variable \"%s\".\n", DecList->lineno, symbol->field->name);
 	else insertSymbol(symbol, variable_table);
 
@@ -542,7 +554,7 @@ VarType handle_Exp(Node* root) {
 				right = handle_Exp(root->child[2]);
 		if (VarTypeEqual(left, right) == false) {
 			if ((left != NULL) && (right != NULL))
-				printf("Error type 5 at Line %d: VarType mismatched for assignment.\n", root->lineno);
+				printf("Error type 5 at Line %d: Type mismatched for assignment.\n", root->lineno);
 			return NULL;
 		}
 		else return left;
@@ -556,7 +568,7 @@ VarType handle_Exp(Node* root) {
 				right = handle_Exp(root->child[2]);
 		if (VarTypeEqual(left, right) == false) {
 			if ((left != NULL) && (right != NULL))
-				printf("Error type 7 at Line %d: VarType mismatched for operands.\n", root->lineno);
+				printf("Error type 7 at Line %d: Type mismatched for operands.\n", root->lineno);
 			return NULL;
 		}
 		else {
@@ -576,7 +588,7 @@ VarType handle_Exp(Node* root) {
 				right = handle_Exp(root->child[2]);
 		if (VarTypeEqual(left, right) == false) {
 			if ((left != NULL) && (right != NULL))
-				printf("Error type 7 at Line %d: VarType mismatched for operands.\n", root->lineno);
+				printf("Error type 7 at Line %d: Type mismatched for operands.\n", root->lineno);
 			return NULL;
 		}
 		else return left;
@@ -613,7 +625,10 @@ VarType handle_Exp(Node* root) {
 
 		if (FuncTypeEqual(type, funcType) == false) {
 			printf("Error type 9 at Line %d: Params mismatched in function \"%s\".\n", root->lineno, root->child[0]->text);
-			return NULL;
+			
+			return funcType->rtnType;
+			/* TODO: bug!! */
+			//return NULL;
 		}
 
 		else return funcType->rtnType;
@@ -645,6 +660,7 @@ VarType handle_Exp(Node* root) {
 
 			if (searchSymbol(s, variable_table) != NULL)
 				printf("Error type 10 at Line %d: \"%s\" is not an array.\n", root->lineno, s);
+			else printf("Error type 10 at Line %d: Illegal use of \"[]\".\n", root->lineno);
 			return NULL;
 		}
 
@@ -660,8 +676,9 @@ VarType handle_Exp(Node* root) {
 	// Exp -> Exp DOT ID
 	else if (strcmp(root->child[1]->name, "DOT") == 0) {
 		VarType Exp = handle_Exp(root->child[0]);
-		if (Exp->kind != STRUCTURE) {
-			Node* temp = root->child[0];
+		/*TODO: bug!! */
+		if (Exp == NULL || Exp->kind != STRUCTURE) {
+			/*Node* temp = root->child[0];
 			char* s;
 			switch(temp->childsum) {
 				case 1: // subExp -> ID
@@ -680,7 +697,7 @@ VarType handle_Exp(Node* root) {
 				default: printf("no more operation\n"); break;
 			}
 			
-			if (searchSymbol(s, variable_table) != NULL)
+			if (searchSymbol(s, variable_table) != NULL)*/
 				printf("Error type 13 at Line %d: Illegal use of \".\".\n", root->lineno);
 			return NULL;
 		}

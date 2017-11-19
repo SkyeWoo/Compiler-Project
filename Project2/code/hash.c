@@ -11,8 +11,8 @@ unsigned int hash_pjw(char* name) {
 
 void initTable() {
 	for (int i = 0; i < HASH_TABLE_SIZE; i++) {
-		variable_table[HASH_TABLE_SIZE] = NULL;
-		function_table[HASH_TABLE_SIZE] = NULL;
+		variable_table[i] = NULL;
+		function_table[i] = NULL;
 	}
 }
 
@@ -25,17 +25,22 @@ bool insertSymbol(SymbolList s, SymbolList* table) {
 	if (table[key] == NULL) {
 		table[key] = s;
 		table[key]->dead = false;
+		table[key]->next = NULL;
 		return true;
 	}
 
+	s->next = table[key];
+	table[key] = s;
+	table[key]->dead = false;
+	return true;
 	// collision
-	while (1) {
+	/*while (1) {
 		key = (++key) % HASH_TABLE_SIZE;
 		SymbolList q = table[key];
 		if (q == NULL) {
 			table[key] = s; return true;
 		}
-	}
+	}*/
 
 	return false;
 }
@@ -46,11 +51,19 @@ SymbolList searchSymbol(char* name, SymbolList* table) {
 	unsigned int key = hash_pjw(name);
 
 	SymbolList p = table[key];
-	while (p != NULL && p->field != NULL) {
-		if (strcmp(name, p->field->name) == 0 && p->dead == false) return p;
+	while (p != NULL) {
+		if (strcmp(name, p->field->name) == 0 && p->dead == false)
+			return p;
+		p = p->next;
+	}
+
+/*	while (p != NULL && p->field != NULL) {
+			// TODO bug!!!
+		if (strcmp(name, p->field->name) == 0 && p->dead == false)
+				return p;
 		key = (++key) % HASH_TABLE_SIZE;
 		p = table[key];
-	}
+	}*/
 
 	return NULL;
 }

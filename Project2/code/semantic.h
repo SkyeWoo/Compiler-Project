@@ -56,6 +56,7 @@ typedef struct SymbolList_ {
 // REQUIRE 2
 	int depth;
 	bool dead;
+	SymbolList next;
 } SymbolList_;
 
 unsigned int hash_pjw(char* name);
@@ -93,5 +94,7 @@ void handle_Args(Node* root, FuncType* type);
 #define HASH_TABLE_SIZE 16384
 SymbolList variable_table[HASH_TABLE_SIZE];
 SymbolList function_table[HASH_TABLE_SIZE];
+
+extern int depth;
 
 #endif

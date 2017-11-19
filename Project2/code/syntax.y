@@ -51,11 +51,11 @@ ExtDefList	: ExtDef ExtDefList { $$ = createNode("ExtDefList", ""); addChild(2, 
 
 ExtDef		: Specifier ExtDecList SEMI { $$ = createNode("ExtDef", ""); addChild(3, $$, $1, $2, $3); }
 			| Specifier SEMI { $$ = createNode("ExtDef", ""); addChild(2, $$, $1, $2); }
-			| Specifier error SEMI { myerror("1Syntax error"); }
+//			| Specifier error SEMI { myerror("1Syntax error"); }
 			| Specifier FunDec CompSt { $$ = createNode("ExtDef", ""); addChild(3, $$, $1, $2, $3); }
 // REQUIRE 1 function declaration
 			| Specifier FunDec SEMI { $$ = createNode("ExtDef", ""); addChild(3, $$, $1, $2, $3); /* myerror("Syntax error"); */ }
-/*			| error SEMI { myerror"Syntax error"); }*/
+			| Specifier error { myerror("1Syntax error"); }
 			;
 
 ExtDecList	: VarDec { $$ = createNode("ExtDecList", ""); addChild(1, $$, $1); }
@@ -64,7 +64,7 @@ ExtDecList	: VarDec { $$ = createNode("ExtDecList", ""); addChild(1, $$, $1); }
 
 // Specifiers
 
-Specifier	: TYPE { $$ = createNode("Specifier", ""); addChild(1, $$, $1); }
+Specifier	: TYPE { $$ = createNode("Specifier", $1->text); addChild(1, $$, $1); }
 		  	| StructSpecifier { $$ = createNode("Specifier", ""); addChild(1, $$, $1); }
 			;
 
@@ -73,16 +73,16 @@ StructSpecifier : STRUCT OptTag LC DefList RC { $$ = createNode("StructSpecifier
 				| STRUCT Tag { $$ = createNode("StructSpecifier", ""); addChild(2, $$, $1, $2); }
 				;
 
-OptTag		: ID { $$ = createNode("OptTag", ""); addChild(1, $$, $1); }
+OptTag		: ID { $$ = createNode("OptTag", $1->text); addChild(1, $$, $1); }
 			| { $$ = NULL; }
 			;
 
-Tag			: ID { $$ = createNode("Tag", ""); addChild(1, $$, $1); }
+Tag			: ID { $$ = createNode("Tag", $1->text); addChild(1, $$, $1); }
 	  		;
 
 // Declarators
 
-VarDec		: ID { $$ = createNode("VarDec", ""); addChild(1, $$, $1); }
+VarDec		: ID { $$ = createNode("VarDec", $1->text); addChild(1, $$, $1); }
 			| VarDec LB INT RB { $$ = createNode("VarDec", ""); addChild(4, $$, $1, $2, $3, $4); }
 			| VarDec LB error RB { myerror("Missing \"]\""); }
 			;
@@ -90,7 +90,7 @@ VarDec		: ID { $$ = createNode("VarDec", ""); addChild(1, $$, $1); }
 FunDec		: ID LP VarList RP { $$ = createNode("FunDec", ""); addChild(4, $$, $1, $2, $3, $4); }
 /*			| ID LP error RP { myerror("Syntax error"); }*/
 			| ID LP RP { $$ = createNode("FunDec", ""); addChild(3, $$, $1, $2, $3); }
-			| error RP { myerror("2Syntax error"); }
+//			| error RP { myerror("2Syntax error"); }
 			;
 
 VarList		: ParamDec COMMA VarList { $$ = createNode("VarList", ""); addChild(3, $$, $1, $2, $3); }
@@ -98,7 +98,7 @@ VarList		: ParamDec COMMA VarList { $$ = createNode("VarList", ""); addChild(3, 
 			;
 
 ParamDec	: Specifier VarDec { $$ = createNode("ParamDec", ""); addChild(2, $$, $1, $2); }
-			| error COMMA { myerror("3Syntax error"); }
+//			| error COMMA { myerror("3Syntax error"); }
 			;
 
 // Statements
