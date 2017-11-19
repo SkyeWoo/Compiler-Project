@@ -13,41 +13,39 @@ void initTable() {
 	for (int i = 0; i < HASH_TABLE_SIZE; i++) {
 		variable_table[HASH_TABLE_SIZE] = NULL;
 		function_table[HASH_TABLE_SIZE] = NULL;
-		//hashTable[i] = NULL;
 	}
 }
 
+bool insertSymbol(SymbolList s, SymbolList* table) {
+	if (s == NULL || s->field == NULL || s->field->name == NULL) return false;
 
-bool insertSymbol(FieldList f, FieldList* table) {
-	if (f == NULL || f->name == NULL) return false;
-
-	unsigned int key = hash_pjw(f->name);
+	unsigned int key = hash_pjw(s->field->name);
 
 	// no collision
 	if (table[key] == NULL) {
-		table[key] = f; return true;
+		table[key] = s; return true;
 	}
 
 	// collision
 	while (1) {
 		key = (++key) % HASH_TABLE_SIZE;
-		FieldList q = table[key];
+		SymbolList q = table[key];
 		if (q == NULL) {
-			table[key] = f; return true;
+			table[key] = s; return true;
 		}
 	}
 
 	return false;
 }
 
-FieldList searchSymbol(char* name, FieldList* table) {
+SymbolList searchSymbol(char* name, SymbolList* table) {
 	if (name == NULL) return NULL;
 
 	unsigned int key = hash_pjw(name);
 
-	FieldList p = table[key];
-	while (p != NULL) {
-		if (strcmp(name, p->name) == 0) return p;
+	SymbolList p = table[key];
+	while (p != NULL && p->field != NULL) {
+		if (strcmp(name, p->field->name) == 0) return p;
 		key = (++key) % HASH_TABLE_SIZE;
 		p = table[key];
 	}
