@@ -33,7 +33,6 @@ Operand createOperand(int kind, ...) {
 	switch (kind) {
 		case TEMP:
 		case VARIABLE:
-		case ADDRESS_V: case ADDRESS_T:
 		case LABEL:
 			op->u.var_no = va_arg(args, int); break;
 		case CONSTANT:
@@ -129,10 +128,6 @@ void printOperand(Operand op) {
 			printf("v%d", op->u.var_no); break;
 		case CONSTANT:
 			printf("#%d", op->u.value); break;
-		case ADDRESS_V:
-			printf("*v%d", op->u.var_no); break;
-		case ADDRESS_T:
-			printf("*t%d", op->u.var_no); break;
 		case LABEL:
 			printf("label%d", op->u.var_no); break;
 		case FUNCTION:
@@ -144,7 +139,7 @@ void printOperand(Operand op) {
 	memset(str, 0, sizeof(str));
 	
 	switch (op->kind) {
-	case VARIABLE, ADDRESS:
+	case VARIABLE:
 		sprintf(str, "%d", op->u.var_no); break;
 	case CONSTANT:
 		sprintf(str, "#%d", op->u.value); break;

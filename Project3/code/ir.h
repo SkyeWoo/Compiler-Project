@@ -15,14 +15,12 @@ struct Operand_ {
 	// t1, t2, ... - TEMP
 	// v1, v2, ... - VARIABLE
 	// #1, ... - CONSTANT
-	// *v1, ... - ADDRESS_V
-	// *t1, ... - ADDRESS_T
 	// label1, ... - LABEL
 	// main, ... - FUNCTION
-	enum { TEMP, VARIABLE, CONSTANT, ADDRESS_V, ADDRESS_T, LABEL, FUNCTION } kind;
+	enum { TEMP, VARIABLE, CONSTANT, LABEL, FUNCTION } kind;
 
 	union {
-		int var_no;		// TEMP, VARIABLE, ADDRESS_V, ADDRESS_T, LABEL
+		int var_no;		// TEMP, VARIABLE, LABEL
 		int value;		// CONSTANT
 		char* name;		// FUNCTION
 	} u;
@@ -93,6 +91,6 @@ InterCode translate_Dec(Node* root);
 InterCode translate_Exp(Node* root, Operand* op);
 InterCode translate_Args(Node* root, Operand* arg_list, int i);
 
-extern int temp_no, var_no, addr_no_v, addr_no_t;
+extern int temp_no, var_no, label_no; 
 
 #endif

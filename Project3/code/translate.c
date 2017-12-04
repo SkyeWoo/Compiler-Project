@@ -4,7 +4,7 @@
 extern SymbolList variable_table[HASH_TABLE_SIZE];
 extern SymbolList function_table[HASH_TABLE_SIZE];
 
-int temp_no = 1, var_no = 1, addr_v_no = 1, addr_t_no = 1, label_no = 1;
+int temp_no = 1, var_no = 1, label_no = 1;
 
 InterCode translate_Program(Node* root) {
 	for (int i = 0; i < HASH_TABLE_SIZE; i++) {
@@ -91,7 +91,6 @@ InterCode translate_FunDec(Node* root) {
 	/* TODO : function */
 	// FunDec -> ID LP RP
 	Operand op = getOP(searchSymbol(root->child[0]->text, function_table));
-//	Operand op = createOperand(FUNCTION, root->child[0]->text);
 	InterCode ir = createInterCode(IR_FUNCTION, op);
 
 	// FunDec -> ID LP VarList RP
@@ -135,16 +134,20 @@ InterCode translate_StmtList(Node* root) {
 }
 
 InterCode translate_Stmt(Node* root) {
-	/* TODO : p85 */
+	/* TODO : p83 */
 	// Stmt -> Exp SEMI
 	if (strcmp(root->child[0]->name, "Exp") == 0) {
 		Operand op = NULL;
 		return translate_Exp(root->child[0], &op);
 	}
 
+	// Stmt -> CompSt
+	else if (strcmp(root->child[0]->name, "CompSt") == 0)
+		return translate_CompSt(root->child[0]);
+
 	// Stmt -> RETURN Exp SEMI
 	else if (strcmp(root->child[0]->name, "RETURN") == 0) {
-		Operand op = createOperand(TEMP, temp_no++);
+		Operand op = NULL; // = createOperand(TEMP, temp_no++);
 		InterCode code1 = translate_Exp(root->child[1], &op),
 				  code2 = createInterCode(IR_RETURN, op);
 		return concat_code(code1, code2);
@@ -169,31 +172,60 @@ InterCode translate_Stmt(Node* root) {
 			}
 		}
 	}
+
+	else if (strcmp(root->child[0]->name, "WHIEL") == 0) {
+		Operand label1 = createOperand(LABEL, label_no++),
+				label2 = createOperand(LABEL, label_no++),
+				label3 = createOperand(LABEL, label_no++);
+		InterCode code1 = translate_Cond(root->child[2], label2, label3),
+				  code2 = translate_Stmt(root->child[4]);
+		return concat_codes(6, createInterCode(IR_LABEL, label1), code1, createInterCode(IR_LABEL, label2), code2, createInterCode(IR_GOTO, label1), createInterCode(IR_LABEL, label3));
+	}
 	
 	return NULL;
 }
 
 InterCode translate_Cond(Node* root, Operand label_true, Operand label_false) {
-	if (strcmp(root->child[0]->name, "Exp") == 0) {
-		// Exp -> Exp RELOP Exp
-		if (strcmp(root->child[1]->name, "RELOP") == 0) {
-			Operand t1, t2;
-			InterCode code1 = translate_Exp(root->child[0], &t1),
-					  code2 = translate_Exp(root->child[2], &t2),
-					  code3 = createInterCode(IR_IF, t1, t2, label_true, root->child[1]->text),
-					  code4 = createInterCode(IR_GOTO, label_false);
-			return concat_codes(4, code1, code2, code3, code4);
-		}
+	// Exp -> Exp RELOP Exp
+	if (strcmp(root->child[1]->name, "RELOP") == 0) {
+		Operand t1 = NULL, t2 = NULL;
+		InterCode code1 = translate_Exp(root->child[0], &t1),
+				  code2 = translate_Exp(root->child[2], &t2),
+				  code3 = createInterCode(IR_IF, t1, t2, label_true, root->child[1]->text),
+				  code4 = createInterCode(IR_GOTO, label_false);
+		return concat_codes(4, code1, code2, code3, code4);
 	}
+
+	// Exp -> NOT Exp
+	else if (strcmp(root->child[0]->name, "NOT") == 0)
+		return translate_Cond(root, label_false, label_true);
+
+	// Exp -> Exp1 AND Exp2
+	else if (strcmp(root->child[1]->name, "AND") == 0) {
+		Operand label = createOperand(LABEL, label_no++);
+		InterCode code1 = translate_Cond(root->child[0], label, label_false),
+				  code2 = translate_Cond(root->child[2], label_true, label_false);
+		return concat_code(code1, code2);
+	}
+
+	// Exp -> Exp1 OR Exp2
+	else if (strcmp(root->child[1]->name, "OR") == 0) {
+		Operand label = createOperand(LABEL, label_no++);
+		InterCode code1 = translate_Cond(root->child[0], label_true, label),
+				  code2 = translate_Cond(root->child[2], label_true, label_false);
+		return concat_code(code1, code2);
+	}
+
+	// (other case)
+	Operand t = NULL;
+	InterCode code1 = translate_Exp(root, &t),
+			  code2 = createInterCode(IR_IF, t, createOperand(CONSTANT, 0), label_true, "!=");
+	return concat_codes(3, code1, code2, createInterCode(IR_GOTO, label_false));
 }
 
 InterCode translate_DefList(Node* root) {
 	// DefList -> Def DefList
-	/*if (root->childsum != 0) {
-		InterCode code1 = translate_Def(root->child[0]),
-				  code2 = translate_DefList(root->child[1]);
-		return concat_code(code1, code2);
-	}*/
+	/*TODO*/
 
 	return NULL;
 }
@@ -234,22 +266,12 @@ InterCode translate_Exp(Node* root, Operand* op) {
 	/* TODO : p82 */
 	
 	// Exp -> INT
-	if (strcmp(root->child[0]->name, "INT") == 0) {
-//		Operand constant = createOperand(CONSTANT, atoi(root->child[0]->text));
-//		*op = createOperand(TEMP, temp_no++);
-//		return createInterCode(IR_ASSIGN, *op, constant);
+	// Exp -> FLOAT
+	if (strcmp(root->child[0]->name, "INT") == 0)
 		*op = createOperand(CONSTANT, atoi(root->child[0]->text));
-	}
+	else if (strcmp(root->child[0]->name, "FLOAT") == 0)
+		*op = createOperand(FLOAT, atoi(root->child[0]->text));
 
-	// Exp -> MINUS Exp
-	else if (strcmp(root->child[0]->name, "MINUS") == 0) {
-		Operand t = NULL;
-		InterCode code1 = translate_Exp(root->child[1], &t);
-		*op = createOperand(TEMP, temp_no++);
-		InterCode code2 = createInterCode(IR_SUB, *op, createOperand(CONSTANT, 0), t);
-		return concat_code(code1, code2);
-	}
-	
 	else if (strcmp(root->child[0]->name, "ID") == 0) {
 		// Exp -> ID
 		if (root->childsum == 1) {
@@ -262,8 +284,10 @@ InterCode translate_Exp(Node* root, Operand* op) {
 		// Exp -> ID LP RP
 		// Exp -> ID LP Args RP
 		else /* TODO: function */ {
-			if (strcmp(root->child[0]->text, "read") == 0)
+			if (strcmp(root->child[0]->text, "read") == 0) {
+				*op = createOperand(TEMP, temp_no++);
 				return createInterCode(IR_READ, *op);
+			}
 			else if (strcmp(root->child[0]->text, "write") == 0) {
 				InterCode code = translate_Exp(root->child[2]->child[0], op);
 				return concat_code(code, createInterCode(IR_WRITE, *op));
@@ -281,6 +305,7 @@ InterCode translate_Exp(Node* root, Operand* op) {
 //			FieldList params = func->field->type.function->params;
 //			for (int i = 0, n = func->field->type.function->paramNum; i < n; i++, params = params->tail)
 //				code2 = concat_code(code2, createInterCode(IR_ARG, params->op));
+			*op = createOperand(TEMP, temp_no++);
 			return concat_codes(3, code1, code2, createInterCode(IR_CALL, *op, funcOP)); 
 		}
 	}
@@ -288,14 +313,14 @@ InterCode translate_Exp(Node* root, Operand* op) {
 	// Exp -> Exp1 ASSIGNOP Exp2 (Exp1 -> ID)
 	else if (strcmp(root->child[1]->name, "ASSIGNOP") == 0) {
 		Operand v = getOP(searchSymbol(root->child[0]->child[0]->text, variable_table)),
-				t = createOperand(TEMP, temp_no++);
+				t = NULL; //createOperand(TEMP, temp_no++);
 		InterCode code1 = translate_Exp(root->child[2], &t),
 				  code2 = createInterCode(IR_ASSIGN, v, t);
 		if (*op != NULL)
 			code2 = concat_code(code2, createInterCode(IR_ASSIGN, *op, v));
 		return concat_code(code1, code2);
 	}
-
+	
 	// Exp -> Exp1 RELOP Exp2
 	// Exp -> Exp AND Exp
 	// Exp -> Exp OR Exp
@@ -315,11 +340,13 @@ InterCode translate_Exp(Node* root, Operand* op) {
 	// Exp -> Exp DIV Exp
 	else if ((strcmp(root->child[1]->name, "PLUS") == 0) || (strcmp(root->child[1]->name, "MINUS") == 0) || (strcmp(root->child[1]->name, "STAR") == 0) || (strcmp(root->child[1]->name, "DIV") == 0)) {
 
-		Operand t1 = createOperand(TEMP, temp_no++),
-				t2 = createOperand(TEMP, temp_no++);
+		Operand t1 = NULL, t2 = NULL;
+//		Operand t1 = createOperand(TEMP, temp_no++),
+//				t2 = createOperand(TEMP, temp_no++);
 		InterCode code1 = translate_Exp(root->child[0], &t1),
 				  code2 = translate_Exp(root->child[2], &t2),
 				  code3 = NULL;
+		*op = createOperand(TEMP, temp_no++);
 		if (strcmp(root->child[1]->name, "PLUS") == 0)
 			code3 = createInterCode(IR_ADD, *op, t1, t2);
 		else if (strcmp(root->child[1]->name, "MINUS") == 0)
@@ -329,6 +356,15 @@ InterCode translate_Exp(Node* root, Operand* op) {
 		else if (strcmp(root->child[1]->name, "DIV") == 0)
 			code3 = createInterCode(IR_DIV, *op, t1, t2);
 		return concat_codes(3, code1, code2, code3);
+	}
+
+	// Exp -> MINUS Exp
+	else if (strcmp(root->child[0]->name, "MINUS") == 0) {
+		Operand t = NULL;
+		InterCode code1 = translate_Exp(root->child[1], &t);
+		if (*op == NULL) *op = createOperand(TEMP, temp_no++);
+		InterCode code2 = createInterCode(IR_SUB, *op, createOperand(CONSTANT, 0), t);
+		return concat_code(code1, code2);
 	}
 
 	// Exp -> LP Exp RP
@@ -350,7 +386,8 @@ InterCode translate_Exp(Node* root, Operand* op) {
 
 InterCode translate_Args(Node* root, Operand* arg_list, int i) {
 	// Args -> Exp
-	Operand t = createOperand(TEMP, temp_no++);
+	//Operand t = createOperand(TEMP, temp_no++);
+	Operand t = NULL;
 	InterCode code1 = translate_Exp(root->child[0], &t);
 	arg_list[i] = t;
 	
