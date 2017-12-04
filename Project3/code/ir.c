@@ -155,6 +155,7 @@ void printOperand(Operand op) {
 }
 
 void printInterCode(InterCode irCode) {
+	//	printf("%d\n", irCode->code.kind);
 	if (irCode == NULL) return;
 
 	switch(irCode->code.kind) {

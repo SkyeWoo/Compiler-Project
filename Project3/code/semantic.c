@@ -351,6 +351,7 @@ void handle_FunDec(Node* root, Node* ExtDef, VarType basic, bool defined) {
 	FuncType type = (FuncType)malloc(sizeof(FuncType_));
 	type->rtnType = basic;
 	type->defined = defined;
+	symbol->field->op = createOperand(FUNCTION, symbol->field->name);
 
 	// FunDec -> ID LP RP
 	type->params = NULL;

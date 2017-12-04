@@ -91,6 +91,7 @@ InterCode translate_Def(Node* root);
 InterCode translate_DecList(Node* root);
 InterCode translate_Dec(Node* root);
 InterCode translate_Exp(Node* root, Operand* op);
+InterCode translate_Args(Node* root, Operand* arg_list, int i);
 
 extern int temp_no, var_no, addr_no_v, addr_no_t;
 

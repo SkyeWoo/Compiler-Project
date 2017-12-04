@@ -28,7 +28,6 @@ int main(int argc, char** argv) {
 		//printTree(root, 0);
 		initTable();
 		handle_Program(root);
-//		initIRList();
 		irList = translate_Program(root);
 		printInterCodes(irList);
 		//if (argc == 2) printInterCode("stdout");
