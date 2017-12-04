@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "node.h"
+#include "ir.h"
 
 typedef struct VarType_* VarType;
 typedef struct FuncType_* FuncType;
@@ -47,6 +48,8 @@ typedef struct FieldList_ {
 		FuncType_* function;
 	} type;
 
+	Operand op;
+
 	FieldList tail;
 } FieldList_;
 
@@ -64,11 +67,13 @@ unsigned int hash_pjw(char* name);
 void initTable();
 bool insertSymbol(SymbolList f, SymbolList* table);
 SymbolList searchSymbol(char* name, SymbolList* table);
+Operand getOP(SymbolList symbol);
 
 bool VarTypeEqual(VarType type1, VarType type2);
 bool FuncTypeEqual(FuncType type1, FuncType type2);
 
 void check_declared_undefined();
+void insert_read_write();
 
 void handle_Program(Node* root);
 void handle_ExtDefList(Node* root);

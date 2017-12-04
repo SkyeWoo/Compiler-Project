@@ -5,6 +5,7 @@
 #include "ir.h"
 
 Node* root = NULL;
+InterCode irList = NULL;
 int errorNum = 0;
 
 extern void yyrestart(FILE*);
@@ -26,10 +27,12 @@ int main(int argc, char** argv) {
 	if (errorNum == 0) {
 		//printTree(root, 0);
 		initTable();
-		initIRList();
 		handle_Program(root);
-		if (argc == 2) printInterCode("stdout");
-		else printInterCode(argv[2]);
+//		initIRList();
+		irList = translate_Program(root);
+		printInterCodes(irList);
+		//if (argc == 2) printInterCode("stdout");
+		//else printInterCode(argv[2]);
 	}
 
 	return 0;

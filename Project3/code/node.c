@@ -2,7 +2,7 @@
 
 Node* createNode(char *name, char* text) {
 	Node* p = (Node*)malloc(sizeof(Node));
-	
+
 	strcpy(p->name, name);
 	strcpy(p->text, text);
 	

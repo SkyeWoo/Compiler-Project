@@ -61,10 +61,44 @@ void check_declared_undefined() {
 		}
 }
 
+void insert_read_write() {
+	SymbolList read = (SymbolList)malloc(sizeof(SymbolList_));
+	read->field = (FieldList)malloc(sizeof(FieldList_));
+	read->field->name = "read";
+	FuncType type = (FuncType)malloc(sizeof(FuncType_));
+	type->rtnType = (VarType)malloc(sizeof(VarType_));
+	type->rtnType->kind = BASIC;
+	type->rtnType->u.basic.type = INT;
+	type->defined = true;
+	type->params = NULL;
+	type->paramNum = 0;
+	read->field->type.function = type;
+	insertSymbol(read, function_table);
+
+	SymbolList write = (SymbolList)malloc(sizeof(SymbolList_));
+	write->field = (FieldList)malloc(sizeof(FieldList_));
+	write->field->name = "write";
+	type = (FuncType)malloc(sizeof(FuncType_));
+	type->rtnType = (VarType)malloc(sizeof(VarType_));
+	type->rtnType->kind = BASIC;
+	type->rtnType->u.basic.type = INT;
+	type->defined = true;
+	FieldList params = (FieldList)malloc(sizeof(FieldList_));
+	params->type.variable = (VarType)malloc(sizeof(VarType_));
+	params->type.variable->kind = BASIC;
+	params->type.variable->u.basic.type = INT;
+	type->params = params;
+	type->paramNum = 1;
+	write->field->type.function = type;
+	insertSymbol(write, function_table);
+}
+
 void handle_Program(Node* root) {
 	if (root == NULL) return;
 
 	depth = 0;
+
+	insert_read_write();
 
 	// Program -> ExtDefList
 	if (root->childsum != 0)
@@ -280,6 +314,7 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 	// VarDec -> ID
 	if (i == 0) {
 		symbol->field->type.variable = basic;
+		symbol->field->op = createOperand(VARIABLE, var_no++);
 		return symbol;
 	}
 

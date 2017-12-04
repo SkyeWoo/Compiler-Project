@@ -67,3 +67,7 @@ SymbolList searchSymbol(char* name, SymbolList* table) {
 
 	return NULL;
 }
+
+Operand getOP(SymbolList symbol) {
+	return symbol->field->op;
+}
