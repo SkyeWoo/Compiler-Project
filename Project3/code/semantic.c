@@ -310,11 +310,13 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 	symbol->depth = depth;
 	symbol->field->name = VarDec->child[0]->text;
 	symbol->lineno = root->lineno;
+	symbol->field->op = createOperand(VARIABLE, var_no++);
+	
+//	symbol->field->op = createOperand(VARIABLE, var_no++);
 
 	// VarDec -> ID
 	if (i == 0) {
 		symbol->field->type.variable = basic;
-		symbol->field->op = createOperand(VARIABLE, var_no++);
 		return symbol;
 	}
 
@@ -327,6 +329,7 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 	switch(i) {
 		case 1: 
 			symbol->field->type.variable = var1;
+			symbol->field->op = createOperand(ADDRESS, symbol->field->op, 1);
 			return symbol;
 
 		// VarDec LB INT RB LB INT RB
@@ -336,6 +339,7 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 			var2->u.array.size = atoi(root->child[0]->child[2]->text);
 			var2->u.array.elem = var1;
 			symbol->field->type.variable = var2;
+			symbol->field->op = createOperand(ADDRESS, symbol->field->op, var1->u.array.size);
 			return symbol;
 		}
 		default: printf("no more operation for array dimension above 2\n"); break;

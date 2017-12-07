@@ -17,12 +17,17 @@ struct Operand_ {
 	// #1, ... - CONSTANT
 	// label1, ... - LABEL
 	// main, ... - FUNCTION
-	enum { TEMP, VARIABLE, CONSTANT, LABEL, FUNCTION } kind;
+	// &v1, &t1, ... - ADDRESS
+	// *t1, ... - VALUE
+	enum { TEMP, VARIABLE, CONSTANT, LABEL, FUNCTION, ADDRESS, ADDRESS_V, VALUE } kind;
 
 	union {
 		int var_no;		// TEMP, VARIABLE, LABEL
 		int value;		// CONSTANT
 		char* name;		// FUNCTION
+		struct { Operand op; int size; } t;
+						// ADDRESS, ADDRESS_V
+		Operand op;		// VALUE
 	} u;
 };
 
@@ -59,16 +64,12 @@ struct InterCodes_ {
 	struct InterCodes_ *prev, *next;
 };
 
-//extern int irLength, irCapacity;
-
-//void initIRList();
-//void insertIRList(InterCode ir);
 Operand createOperand(int kind, ...);
 InterCode createInterCode(int kind, ...);
 InterCode concat_code(InterCode code1, InterCode code2);
 InterCode concat_codes(int argc, ...);
-void printOperand(Operand op);
-void printInterCode(InterCode irCode);
+void printOperand(Operand op, FILE* fp);
+void printInterCode(InterCode irCode, FILE* fp);
 void printInterCodes(InterCode irList);
 //void printOperand(Operand op, FILE *fp);
 //void printInterCode(char *filename);
@@ -76,7 +77,7 @@ void printInterCodes(InterCode irList);
 InterCode translate_Program(Node* root);
 InterCode translate_ExtDefList(Node* root);
 InterCode translate_ExtDef(Node* root);
-InterCode translate_VarDec(Node* root, Operand* op);
+int translate_VarDec(Node* root, Operand* op);
 InterCode translate_FunDec(Node* root);
 InterCode translate_VarList(Node* root);
 InterCode translate_ParamDec(Node* root);
@@ -92,5 +93,6 @@ InterCode translate_Exp(Node* root, Operand* op);
 InterCode translate_Args(Node* root, Operand* arg_list, int i);
 
 extern int temp_no, var_no, label_no; 
+extern char* filename;
 
 #endif

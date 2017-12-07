@@ -29,9 +29,9 @@ int main(int argc, char** argv) {
 		initTable();
 		handle_Program(root);
 		irList = translate_Program(root);
+		if (argc == 2) filename = "stdout";
+		else filename = argv[2];
 		printInterCodes(irList);
-		//if (argc == 2) printInterCode("stdout");
-		//else printInterCode(argv[2]);
 	}
 
 	return 0;

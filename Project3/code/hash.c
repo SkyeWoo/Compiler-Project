@@ -33,16 +33,6 @@ bool insertSymbol(SymbolList s, SymbolList* table) {
 	table[key] = s;
 	table[key]->dead = false;
 	return true;
-	// collision
-	/*while (1) {
-		key = (++key) % HASH_TABLE_SIZE;
-		SymbolList q = table[key];
-		if (q == NULL) {
-			table[key] = s; return true;
-		}
-	}*/
-
-	return false;
 }
 
 SymbolList searchSymbol(char* name, SymbolList* table) {
@@ -56,14 +46,6 @@ SymbolList searchSymbol(char* name, SymbolList* table) {
 			return p;
 		p = p->next;
 	}
-
-/*	while (p != NULL && p->field != NULL) {
-			// TODO bug!!!
-		if (strcmp(name, p->field->name) == 0 && p->dead == false)
-				return p;
-		key = (++key) % HASH_TABLE_SIZE;
-		p = table[key];
-	}*/
 
 	return NULL;
 }
