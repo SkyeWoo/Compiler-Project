@@ -110,6 +110,7 @@ char* filename;
 
 /* TODO : print console first, file! */
 void printOperand(Operand op, FILE* fp) {
+	//	printf("op = %d\n", op->kind);
 	char str[64];
 	memset(str, 0, sizeof(str));
 	
@@ -126,14 +127,14 @@ void printOperand(Operand op, FILE* fp) {
 		sprintf(str, "%s", op->u.name); break;
 	case ADDRESS:
 		switch (op->u.t.op->kind) {
-			case TEMP: sprintf(str, "&t%d", op->u.op->u.var_no); break;
-			case VARIABLE: sprintf(str, "&v%d", op->u.op->u.var_no); break;
+			case TEMP: sprintf(str, "&t%d", op->u.t.op->u.var_no); break;
+			case VARIABLE: sprintf(str, "&v%d", op->u.t.op->u.var_no); break;
 		}
 		break;
 	case ADDRESS_V:
 		switch (op->u.t.op->kind) {
-			case TEMP: sprintf(str, "t%d", op->u.op->u.var_no); break;
-			case VARIABLE: sprintf(str, "v%d", op->u.op->u.var_no); break;
+			case TEMP: sprintf(str, "t%d", op->u.t.op->u.var_no); break;
+			case VARIABLE: sprintf(str, "v%d", op->u.t.op->u.var_no); break;
 		}
 		break;
 	case VALUE:
@@ -149,7 +150,7 @@ void printOperand(Operand op, FILE* fp) {
 }
 
 void printInterCode(InterCode irCode, FILE* fp) {
-	//	printf("%d\n", irCode->code.kind);
+//		printf("ir = %d\n", irCode->code.kind);
 
 	if (irCode == NULL) return;
 
@@ -185,7 +186,7 @@ void printInterCode(InterCode irCode, FILE* fp) {
 			break;
 		}
 
-		case IR_ASSIGN:
+		case IR_ASSIGN: 
 		case IR_ADDRESS:
 		case IR_LOAD:
 		case IR_CALL:
@@ -237,7 +238,6 @@ void printInterCode(InterCode irCode, FILE* fp) {
 			fputs("DEC ", fp);
 			printOperand(irCode->code.u.decOP.op, fp);
 			fprintf(fp, " %d", irCode->code.u.decOP.size);
-//			fputs(irCode->code.u.decOP.size, fp);
 			break;
 
 		default:

@@ -15,5 +15,5 @@ if __name__ == "__main__":
 	test_files.sort()
 
 	for case in test_files:
-		output = subprocess.check_output("./parser %s%s.txt" %(test_dir, str(case)), shell = True)
-		print "case %d: %s" %(case, output)
+		output = subprocess.check_output("./parser %s%s.txt %sout%s.ir" %(test_dir, str(case), test_dir, str(case)), shell = True)
+		#print "case %d: %s" %(case, output)

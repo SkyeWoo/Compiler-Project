@@ -69,7 +69,14 @@ int translate_VarDec(Node* root, Operand* op) {
 	SymbolList symbol = searchSymbol(VarDec->child[0]->text, variable_table);
 	*op = getOP(symbol);
 
-	return calculate_array_size(symbol->field->type.variable);
+	switch (symbol->field->type.variable->kind) {
+		case BASIC:
+			return 4;
+		case ARRAY:
+			return symbol->field->type.variable->u.array.size * 4;
+		case STRUCTURE:
+			return (*op)->u.t.size;
+	}	
 }
 
 InterCode translate_FunDec(Node* root) {
@@ -99,6 +106,7 @@ InterCode translate_VarList(Node* root) {
 
 InterCode translate_ParamDec(Node* root) {
 	// ParamDec -> Specifier VarDec
+
 	Operand op;
 	translate_VarDec(root->child[1], &op);
 
@@ -243,8 +251,8 @@ InterCode translate_DecList(Node* root) {
 
 InterCode translate_Dec(Node* root) {
 	Operand op1;
-	int size = translate_VarDec(root->child[0], &op1);
 	// Dec -> VarDec
+	int size = translate_VarDec(root->child[0], &op1);
 		
 	// VarDec -> ID
 	InterCode code1 = NULL;
@@ -341,8 +349,20 @@ InterCode translate_Exp(Node* root, Operand* op) {
 				  code2 = translate_Exp(root->child[2], &t2),
 				  code3 = NULL;
 
-		*op = createOperand(TEMP, temp_no++);
+		if (t1->kind == CONSTANT && t2->kind == CONSTANT) {
+			if (strcmp(root->child[1]->name, "PLUS") == 0)
+				*op = createOperand(CONSTANT, t1->u.value + t2->u.value);
+			else if (strcmp(root->child[1]->name, "MINUS") == 0)
+				*op = createOperand(CONSTANT, t1->u.value - t2->u.value);
+			else if (strcmp(root->child[1]->name, "STAR") == 0)
+				*op = createOperand(CONSTANT, t1->u.value * t2->u.value);
+			else if (strcmp(root->child[1]->name, "DIV") == 0)
+				*op = createOperand(CONSTANT, t1->u.value / t2->u.value);
 
+			return concat_code(code1, code2);
+		}
+
+		*op = createOperand(TEMP, temp_no++);
 		if (strcmp(root->child[1]->name, "PLUS") == 0)
 			code3 = createInterCode(IR_ADD, *op, t1, t2);
 		else if (strcmp(root->child[1]->name, "MINUS") == 0)
@@ -358,7 +378,11 @@ InterCode translate_Exp(Node* root, Operand* op) {
 	else if (strcmp(root->child[0]->name, "MINUS") == 0) {
 		Operand t = NULL;
 		InterCode code1 = translate_Exp(root->child[1], &t);
-		if (*op == NULL) *op = createOperand(TEMP, temp_no++);
+		//if (*op == NULL) *op = createOperand(TEMP, temp_no++;
+		if (t->kind == CONSTANT) {
+			*op = createOperand(CONSTANT, -t->u.value);
+			return code1;
+		}
 		InterCode code2 = createInterCode(IR_SUB, *op, createOperand(CONSTANT, 0), t);
 		return concat_code(code1, code2);
 	}
@@ -443,11 +467,36 @@ InterCode translate_Exp(Node* root, Operand* op) {
 		}
 	}
 
-	// Exp -> Exp DOT ID
+	// Exp -> Exp1 DOT ID (Exp1 -> ID)
 	else if (strcmp(root->child[1]->name, "DOT") == 0) {
-		/* TODO */
-	}
+		Operand op1,
+				op2 = getOP(searchSymbol(root->child[2]->text, variable_table));
+		InterCode code1 = translate_Exp(root->child[0], &op1);
 
+		int offset = op1->u.t.size;
+
+		SymbolList symbol = searchSymbol(root->child[0]->child[0]->text, variable_table);
+		FieldList field = symbol->field->type.variable->u.structure;
+		do {
+			switch (field->type.variable->kind) {
+				case BASIC: offset -= 4; break;
+				case ARRAY: offset -= field->type.variable->u.array.size; break;
+				default: offset -= 4; break;
+			}
+		} while (field != NULL && strcmp(field->name, root->child[2]->text) != 0 && (field = field->tail)); 
+
+		if (offset == 0) {
+			*op = createOperand(VALUE, op1->u.t.op);
+			return code1;
+		}
+
+		Operand t = createOperand(TEMP, temp_no++);
+		InterCode code2 = createInterCode(IR_ADD, t, op1, createOperand(CONSTANT, offset)); 
+		*op = createOperand(VALUE, t);
+		
+		return concat_code(code1, code2);
+	}
+		
 	return NULL;
 }
 

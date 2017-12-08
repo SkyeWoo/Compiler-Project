@@ -215,6 +215,7 @@ VarType handle_Specifier(Node* root) {
 				symbol->lineno = StructSpecifier->lineno;
 				symbol->field->type.variable = Specifier;
 				symbol->field->name = StructSpecifier->child[1]->child[0]->text; // ID
+
 				SymbolList p;
 				if ((p = searchSymbol(symbol->field->name, variable_table)) != NULL && (p->depth >= depth || p->field->type.variable->kind == STRUCTURE))
 					printf("Error type 16 at Line %d: Duplicated name \"%s\".\n", root->lineno, symbol->field->name);
@@ -317,6 +318,22 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 	// VarDec -> ID
 	if (i == 0) {
 		symbol->field->type.variable = basic;
+		if (basic->kind == STRUCTURE) {
+			int size = 0;
+
+			FieldList field = symbol->field->type.variable->u.structure;
+			while (field != NULL) {
+				int kind = field->type.variable->kind;
+				switch (kind) {
+					case BASIC: size += 4; break;
+					case ARRAY: size += field->type.variable->u.array.size * 4; break;
+					default: size += 4; break;
+				}
+				field = field->tail;
+			}
+
+			symbol->field->op = createOperand(ADDRESS, symbol->field->op, size);
+		}
 		return symbol;
 	}
 
@@ -336,7 +353,7 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 		case 2: {
 			VarType var2 = (VarType)malloc(sizeof(VarType_));
 			var2->kind = ARRAY;
-			var2->u.array.size = atoi(root->child[0]->child[2]->text);
+			var2->u.array.size = atoi(root->child[0]->child[2]->text) * var1->u.array.size;
 			var2->u.array.elem = var1;
 			symbol->field->type.variable = var2;
 			symbol->field->op = createOperand(ADDRESS, symbol->field->op, var1->u.array.size);
