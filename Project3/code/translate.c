@@ -53,14 +53,6 @@ InterCode translate_ExtDef(Node* root) {
 	return NULL;
 }
 
-int calculate_array_size(VarType type) {
-	// VarDec -> ID
-	if (type->kind == BASIC) return 4;
-
-	// VarDec -> VarDec LB INT RB
-	else return type->u.array.size * calculate_array_size(type->u.array.elem);
-}
-
 int translate_VarDec(Node* root, Operand* op) {
 	Node* VarDec = root;
 	while (strcmp(VarDec->child[0]->name, "ID") != 0)
@@ -75,6 +67,8 @@ int translate_VarDec(Node* root, Operand* op) {
 		case ARRAY:
 			return symbol->field->type.variable->u.array.size * 4;
 		case STRUCTURE:
+//			printf("%s\n", symbol->field->type.variable->u.structure->type.variable->u.basic.name);
+//printf("%s\n", symbol->field->type.variable->u.structure->tail->type.variable->u.basic.name);
 			return (*op)->u.t.size;
 	}	
 }
@@ -96,12 +90,14 @@ InterCode translate_FunDec(Node* root) {
 InterCode translate_VarList(Node* root) {
 	/* TODO */
 	// VarList -> ParamDec COMMA VarList
+	if (root->childsum == 3) {
+		InterCode code1 = translate_ParamDec(root->child[0]),
+				  code2 = translate_VarList(root->child[2]);
+		return concat_code(code1, code2);
+	}
 
 	// VarList -> ParamDec
-	if 	(root->childsum < 3)
-		return translate_ParamDec(root->child[0]);
-
-	return NULL;
+	else return translate_ParamDec(root->child[0]);
 }
 
 InterCode translate_ParamDec(Node* root) {
@@ -146,7 +142,7 @@ InterCode translate_Stmt(Node* root) {
 
 	// Stmt -> RETURN Exp SEMI
 	else if (strcmp(root->child[0]->name, "RETURN") == 0) {
-		Operand op = NULL; // = createOperand(TEMP, temp_no++);
+		Operand op = NULL; 
 		InterCode code1 = translate_Exp(root->child[1], &op),
 				  code2 = createInterCode(IR_RETURN, op);
 		return concat_code(code1, code2);
@@ -317,8 +313,8 @@ InterCode translate_Exp(Node* root, Operand* op) {
 	// Exp -> Exp1 ASSIGNOP Exp2 
 	else if (strcmp(root->child[1]->name, "ASSIGNOP") == 0) {
 		Operand v = NULL, t = NULL;
-		InterCode code0 = translate_Exp(root->child[0], &v);
-		InterCode code1 = translate_Exp(root->child[2], &t),
+		InterCode code0 = translate_Exp(root->child[0], &v),
+				  code1 = translate_Exp(root->child[2], &t),
 				  code2 = createInterCode(IR_ASSIGN, v, t);
 		if (*op != NULL)
 			code2 = concat_code(code2, createInterCode(IR_ASSIGN, *op, v));
@@ -349,6 +345,7 @@ InterCode translate_Exp(Node* root, Operand* op) {
 				  code2 = translate_Exp(root->child[2], &t2),
 				  code3 = NULL;
 
+		//printf("here %d %d\n", t1->kind ,t2->kind);
 		if (t1->kind == CONSTANT && t2->kind == CONSTANT) {
 			if (strcmp(root->child[1]->name, "PLUS") == 0)
 				*op = createOperand(CONSTANT, t1->u.value + t2->u.value);
@@ -378,7 +375,7 @@ InterCode translate_Exp(Node* root, Operand* op) {
 	else if (strcmp(root->child[0]->name, "MINUS") == 0) {
 		Operand t = NULL;
 		InterCode code1 = translate_Exp(root->child[1], &t);
-		//if (*op == NULL) *op = createOperand(TEMP, temp_no++;
+		
 		if (t->kind == CONSTANT) {
 			*op = createOperand(CONSTANT, -t->u.value);
 			return code1;
@@ -417,11 +414,18 @@ InterCode translate_Exp(Node* root, Operand* op) {
 						t1 = createOperand(CONSTANT, 4 * op2->u.value);
 				}
 				else {
-					t1 = createOperand(TEMP, temp_no++);
-					code3 = createInterCode(IR_MUL, t1, op2, createOperand(CONSTANT, 4));
+					if (op2->kind == CONSTANT) {
+						t1 = createOperand(CONSTANT, op2->u.value * 4);
+						code3 = NULL;
+					}
+					else {
+						t1 = createOperand(TEMP, temp_no++);
+						code3 = createInterCode(IR_MUL, t1, op2, createOperand(CONSTANT, 4));
+					}
 				}
 
 				t2 = createOperand(TEMP, temp_no++);
+				code4 = createInterCode(IR_ADD, t2, op1, t1);
 				if (op1->kind == ADDRESS_V) code4 = createInterCode(IR_ADD, t2, op1->u.t.op, t1);
 				else if (op1->kind == ADDRESS) code4 = createInterCode(IR_ADD, t2, op1, t1);
 				*op = createOperand(VALUE, t2);
@@ -433,9 +437,15 @@ InterCode translate_Exp(Node* root, Operand* op) {
 			{
 				Operand op3 = NULL;
 				InterCode code5 = translate_Exp(root->child[0]->child[2], &op3);
-				t1 = createOperand(TEMP, temp_no++);
+				if (op2->kind == CONSTANT) {
+					t1 = createOperand(CONSTANT, op2->u.value * 4);
+					code3 = NULL;
+				}
+				else {
+					t1 = createOperand(TEMP, temp_no++);
+					code3 = createInterCode(IR_MUL, t1, op2, createOperand(CONSTANT, 4));
+				}
 				t2 = createOperand(TEMP, temp_no++);
-				code3 = createInterCode(IR_MUL, t1, op2, createOperand(CONSTANT, 4));
 
 				if (op3->kind == CONSTANT && op3->u.value == 0) { // a[0][i]
 					if (op1->kind == ADDRESS_V)

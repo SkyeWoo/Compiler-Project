@@ -23,7 +23,7 @@
 
 digit [0-9]
 FLOAT [+-]?(({digit}*[.]{digit}+)|({digit}+[.]{digit}*))([Ee][+-]?{digit}+)?f?
-FLOAT_ERROR [+-]?((({digit}*[.]{digit}*)?[Ee][+-]{FLOAT})|([.][Ee][+-]?{digit}*))
+FLOAT_ERROR [+-]?((({digit}*[.]{digit}*)?[Ee][+-]{FLOAT})|([.][E][+-]?{digit}*))
 
 DECNUM ([1-9][0-9]*)|0
 OCT 0[0-7]*

@@ -313,8 +313,6 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 	symbol->lineno = root->lineno;
 	symbol->field->op = createOperand(VARIABLE, var_no++);
 	
-//	symbol->field->op = createOperand(VARIABLE, var_no++);
-
 	// VarDec -> ID
 	if (i == 0) {
 		symbol->field->type.variable = basic;
@@ -324,8 +322,10 @@ SymbolList handle_VarDec(Node* root, VarType basic) {
 			FieldList field = symbol->field->type.variable->u.structure;
 			while (field != NULL) {
 				int kind = field->type.variable->kind;
+//				field->op = createOperand(VARIABLE, var_no++);
 				switch (kind) {
-					case BASIC: size += 4; break;
+					case BASIC:
+						size += 4; break;
 					case ARRAY: size += field->type.variable->u.array.size * 4; break;
 					default: size += 4; break;
 				}
@@ -595,7 +595,12 @@ VarType handle_Exp(Node* root) {
 				return NULL;
 			}
 			// subExp -> Exp DOT ID
-			else {}
+			else {
+					/*bug!!!*/
+				VarType left = handle_Exp(root->child[0]),
+						right = handle_Exp(root->child[2]);
+				left->u.basic.name = right->u.basic.name;
+			}
 		}
 		else if (root->child[0]->childsum == 4) {
 			if (!((strcmp(root->child[0]->child[0]->name, "Exp") == 0) && (strcmp(root->child[0]->child[1]->name, "LB") == 0) && (strcmp(root->child[0]->child[2]->name, "Exp") == 0) && (strcmp(root->child[0]->child[3]->name, "RB") == 0))) {
@@ -648,7 +653,19 @@ VarType handle_Exp(Node* root) {
 				printf("Error type 7 at Line %d: Type mismatched for operands.\n", root->lineno);
 			return NULL;
 		}
-		else return left;
+		else {
+			/*int result;
+			if (strcmp(root->child[1]->name, "PLUS") == 0)
+				result = atoi(left->u.basic.name) + atoi(right->u.basic.name);
+			else if (strcmp(root->child[1]->name, "MINUS") == 0)
+				result = atoi(left->u.basic.name) - atoi(right->u.basic.name);
+			else if (strcmp(root->child[1]->name, "STAR") == 0)
+				result = atoi(left->u.basic.name) * atoi(right->u.basic.name);
+			else if (strcmp(root->child[1]->name, "DIV") == 0)
+				result = atoi(left->u.basic.name) / atoi(right->u.basic.name);
+			sprintf(left->u.basic.name, "%d", result);*/
+			return left;
+		}
 	}
 
 	// Exp -> LP Exp RP
