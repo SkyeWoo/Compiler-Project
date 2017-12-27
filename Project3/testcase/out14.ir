@@ -1,0 +1,70 @@
+FUNCTION Josepy :
+PARAM v1
+PARAM v2
+DEC v3 400
+v4 := #1
+v5 := #0
+v6 := #0
+v7 := #0
+LABEL label1 :
+IF v4 <= v1 GOTO label2
+GOTO label3
+LABEL label2 :
+t1 := v4 * #4
+t2 := &v3 + t1
+*t2 := #1
+t3 := v4 + #1
+v4 := t3
+GOTO label1
+LABEL label3 :
+v4 := #1
+LABEL label4 :
+IF v4 <= v1 GOTO label5
+GOTO label6
+LABEL label5 :
+t4 := v4 * #4
+t5 := &v3 + t4
+IF *t5 == #1 GOTO label7
+GOTO label8
+LABEL label7 :
+t6 := v4 * #4
+t7 := &v3 + t6
+t8 := v5 + *t7
+v5 := t8
+IF v5 == v2 GOTO label9
+GOTO label10
+LABEL label9 :
+WRITE v4
+v5 := #0
+t9 := v4 * #4
+t10 := &v3 + t9
+*t10 := #0
+t11 := v6 + #1
+v6 := t11
+LABEL label10 :
+IF v6 == v1 GOTO label11
+GOTO label12
+LABEL label11 :
+v7 := v4
+RETURN #0
+LABEL label12 :
+LABEL label8 :
+IF v4 == v1 GOTO label13
+GOTO label14
+LABEL label13 :
+v4 := #0
+LABEL label14 :
+t12 := v4 + #1
+v4 := t12
+GOTO label4
+LABEL label6 :
+RETURN #0
+FUNCTION main :
+READ t13
+v8 := t13
+READ t14
+v9 := t14
+ARG v9
+ARG v8
+t15 := CALL Josepy
+RETURN #0

@@ -1,15 +1,15 @@
 int fact(int n)
 {
-	if (n == 1)
+	if( n == 1)
 		return n;
 	else
-		return (n * fact(n - 1));
+		return (n*fact(n-1));
 }
 int main()
 {
-	int m, result;
+	int m,result;
 	m = read();
-	if (m > 1)
+	if( m>1)
 		result = fact(m);
 	else
 		result = 1;

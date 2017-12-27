@@ -1,0 +1,71 @@
+FUNCTION print :
+PARAM v1
+PARAM v2
+v3 := #0
+LABEL label1 :
+IF v3 < v2 GOTO label2
+GOTO label3
+LABEL label2 :
+t1 := v3 * #4
+t2 := v1 + t1
+WRITE *t2
+t3 := v3 + #1
+v3 := t3
+GOTO label1
+LABEL label3 :
+RETURN #0
+FUNCTION InnerP :
+PARAM v4
+PARAM v5
+v6 := #0
+v7 := #0
+v8 := #3
+LABEL label4 :
+IF v7 < v8 GOTO label5
+GOTO label6
+LABEL label5 :
+t4 := v7 * #4
+t5 := v4 + t4
+t6 := v7 * #4
+t7 := v5 + t6
+t8 := *t5 * *t7
+t9 := v6 + t8
+v6 := t9
+t10 := v7 + #1
+v7 := t10
+GOTO label4
+LABEL label6 :
+RETURN v6
+FUNCTION main :
+DEC v9 12
+DEC v10 12
+v11 := #0
+v12 := #3
+LABEL label7 :
+IF v11 < v12 GOTO label8
+GOTO label9
+LABEL label8 :
+t11 := v11 * #4
+t12 := &v9 + t11
+t13 := v11 * v11
+*t12 := t13
+t14 := v11 * #4
+t15 := &v10 + t14
+t16 := #2 * v11
+t17 := t16 + #1
+*t15 := t17
+t18 := v11 + #1
+v11 := t18
+GOTO label7
+LABEL label9 :
+ARG #3
+ARG &v9
+t19 := CALL print
+ARG #3
+ARG &v10
+t20 := CALL print
+ARG &v10
+ARG &v9
+t21 := CALL InnerP
+WRITE t21
+RETURN #0

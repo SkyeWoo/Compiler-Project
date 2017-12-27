@@ -1,0 +1,9 @@
+FUNCTION main :
+DEC v3 8
+*v3 := #123
+t1 := &v3 + #4
+*t1 := #56
+t2 := &v3 + #4
+t3 := *v3 * *t2
+WRITE t3
+RETURN #0
