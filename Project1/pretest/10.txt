@@ -1,10 +1,11 @@
+struct C
+{
+    int a;
+    float b;
+};
+
 int main()
 {
-    /*
-    comment
-    /*
-    nested comment*/
-    */
-    */
-    int i = 1;
+    struct C c;
+    int tmp = c.a + 1;
 }

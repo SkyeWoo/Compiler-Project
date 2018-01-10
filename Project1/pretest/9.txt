@@ -1,8 +1,6 @@
+int gi1 = 1, gi2 = 2;
+float gf = 1.0;
 int main()
 {
-    // line comment
-    /*
-    block comment
-    */
-    int i =1;
+    return 0;
 }

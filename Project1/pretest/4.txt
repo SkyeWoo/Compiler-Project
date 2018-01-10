@@ -1,9 +1,9 @@
-struct Complex
-{
-    float real, image;
-};
 int main()
 {
-    struct Complex x;
-    y.image = 3.5;
+    int op1 = 1;
+    int op2 = 2;
+    int rlt1 = op1 + op2;
+    int rlt1 = op1 - op2;
+    int rlt1 = op1 * op2;
+    int rlt1 = op1 / op2;
 }
