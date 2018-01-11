@@ -17,7 +17,7 @@ typedef struct Var {
 typedef struct Reg {
 	char name[6];
 	int old;
-	struct Var *var;
+	VarDescripter *var;
 } RegDescripter;
 
 typedef struct {
