@@ -1,6 +1,9 @@
 #include "mips32.h"
 
 RegDescripter regs[REG_NUM];
+VarDescripter *varlist = NULL;
+
+int args = 0;
 
 void initMIPS() {
 	strcpy(regs[0].name, "$t0");
@@ -37,6 +40,11 @@ void initMIPS() {
 	strcpy(regs[29].name, "$sp");
 	strcpy(regs[30].name, "$ra");
 	strcpy(regs[31].name, "$zero");
+
+	for (int i = 0; i < 20; i++) {
+		regs[i].old = 0;
+		regs[i].var = NULL;
+	}
 }
 
 void genMIPS(InterCode ir, FILE* fp) {
@@ -133,7 +141,7 @@ void genMIPS(InterCode ir, FILE* fp) {
 			Operand op = ir->code.u.singleOP.op;
 			char str[32];
 			memset(str, 0, sizeof(str));
-			sprintf(str, "  j label %d\n", ir->code.u.singleOP.op->u.var_no);
+			sprintf(str, "  j label%d\n", ir->code.u.singleOP.op->u.var_no);
 			fputs(str, fp);
 			break;
 		}
@@ -177,7 +185,8 @@ void genMIPS(InterCode ir, FILE* fp) {
 			break;
 		}
 		case IR_ARG:
-			/* TODO */
+			if (args < 4) args++;
+			
 			break;
 			
 		case IR_CALL:
@@ -198,7 +207,7 @@ void genMIPS(InterCode ir, FILE* fp) {
 			int reg_no = getReg(ir->code.u.singleOP.op, fp);
 			char str[32];
 			memset(str, 0, sizeof(str));
-			sprintf(str, "  move $%s, $v0\n", regs[reg_no].name);
+			sprintf(str, "  move %s, $v0\n", regs[reg_no].name);
 			fputs(str, fp);
 			break;
 		}
@@ -220,7 +229,71 @@ void genMIPS(InterCode ir, FILE* fp) {
 }
 
 int getReg(Operand op, FILE* fp) {
-	return 0;
+	char name[4];
+	memset(name, 0,sizeof(name));
+
+	VarDescripter* var = varlist;
+	while (var != NULL) {
+		if (op->kind == var->op->kind) {
+			if (op->kind == TEMP && var->op->u.var_no == op->u.var_no) {
+				sprintf(name, "t%d", op->u.var_no);
+				break;
+			}
+		
+			if (op->kind == VARIABLE && var->op->u.var_no == op->u.var_no) {
+				sprintf(name, "v%d", op->u.var_no);
+				break;
+			}
+		}
+		
+		var = var->next;
+	}
+
+	if (var == NULL) {
+		var = (VarDescripter*)malloc(sizeof(VarDescripter));
+		memset(var, 0, sizeof(VarDescripter));
+		if (var == NULL) {
+			printf("getReg error!\n");
+			exit(1);
+		}
+		var->op = op;
+		var->reg_no = -1;
+		if (op->kind == TEMP || op->kind == VARIABLE) {
+			var->next = varlist;
+			varlist = var;
+		}
+	}
+
+	if (var->reg_no == -1) {
+		int reg_no = -1;
+		for (int i = 0; i < 20; i++)
+			if (regs[i].var != NULL) regs[i].old++;
+
+		for (int i = 0; i < 20; i++)
+			if (regs[i].var == NULL) {
+				reg_no = i; break;
+			}
+
+		if (reg_no == -1) {
+			int max = -1;
+			for (int i = 0; i < 20; i++)
+				if (regs[i].old > max) {
+					max = regs[i].old;
+					reg_no = i;
+				}
+		}
+
+		var->reg_no = reg_no;
+		regs[reg_no].var = var;
+		if (var->op->kind == CONSTANT) {
+			char str[32];
+			memset(str, 0, sizeof(str));
+			sprintf(str, "  li %s, %d\n", regs[var->reg_no].name, var->op->u.value);
+			fputs(str, fp);
+		}
+	}
+	regs[var->reg_no].old = 0;
+	return var->reg_no;
 }
 
 void printMIPS(InterCode irList) {

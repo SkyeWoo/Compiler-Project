@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
 		if (argc == 2) filename = "stdout";
 		else filename = argv[2];
 		irList = translate_Program(root);
-	//	printInterCodes(irList);
+		//printInterCodes(irList);
 		printMIPS(irList);
 	}
 
