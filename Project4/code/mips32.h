@@ -6,6 +6,7 @@
 #include "ir.h"
 
 #define REG_NUM 32
+#define STACKSIZE 1024
 
 typedef struct Var {
 	int reg_no;
@@ -18,6 +19,15 @@ typedef struct Reg {
 	int old;
 	struct Var *var;
 } RegDescripter;
+
+typedef struct {
+	int length;
+
+	struct {
+		int old;
+		VarDescripter* var;
+	} stack[STACKSIZE];
+} StkDescripter;
 
 void printMIPS(InterCode irList);
 int getReg(Operand op, FILE* fp);

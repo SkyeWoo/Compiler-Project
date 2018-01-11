@@ -40,11 +40,124 @@ void initMIPS() {
 	strcpy(regs[29].name, "$sp");
 	strcpy(regs[30].name, "$ra");
 	strcpy(regs[31].name, "$zero");
+}
 
-	for (int i = 0; i < 20; i++) {
-		regs[i].old = 0;
-		regs[i].var = NULL;
+int getReg(Operand op, FILE* fp) {
+	char name[4];
+	memset(name, 0,sizeof(name));
+
+	VarDescripter* var = varlist;
+	while (var != NULL) {
+		if (op->kind == var->op->kind) {
+			if (op->kind == TEMP && var->op->u.var_no == op->u.var_no) {
+				sprintf(name, "t%d", op->u.var_no);
+				break;
+			}
+		
+			if (op->kind == VARIABLE && var->op->u.var_no == op->u.var_no) {
+				sprintf(name, "v%d", op->u.var_no);
+				break;
+			}
+		}
+		
+		var = var->next;
 	}
+
+	if (var == NULL) {
+		var = (VarDescripter*)malloc(sizeof(VarDescripter));
+		memset(var, 0, sizeof(VarDescripter));
+		if (var == NULL) {
+			printf("getReg error!\n");
+			exit(1);
+		}
+		var->op = op;
+		var->reg_no = -1;
+		if (op->kind == TEMP || op->kind == VARIABLE) {
+			var->next = varlist;
+			varlist = var;
+		}
+	}
+
+	if (var->reg_no == -1) {
+		int reg_no = -1;
+		for (int i = 0; i < 20; i++)
+			if (regs[i].var != NULL) regs[i].old++;
+
+		for (int i = 0; i < 20; i++)
+			if (regs[i].var == NULL) {
+				reg_no = i; break;
+			}
+
+		if (reg_no == -1) {
+			int max = -1;
+			for (int i = 0; i < 20; i++)
+				if (regs[i].old > max) {
+					max = regs[i].old;
+					reg_no = i;
+				}
+		}
+
+		var->reg_no = reg_no;
+		regs[reg_no].var = var;
+		if (var->op->kind == CONSTANT) {
+			char str[32];
+			memset(str, 0, sizeof(str));
+			sprintf(str, "  li %s, %d\n", regs[var->reg_no].name, var->op->u.value);
+			fputs(str, fp);
+		}
+	}
+	regs[var->reg_no].old = 0;
+	return var->reg_no;
+}
+
+StkDescripter stack;
+
+void storeVarlist(FILE* fp) {
+	VarDescripter* var = varlist;
+	char str[32];
+	while (var != NULL) {
+		if (var->reg_no >= 0) {
+//			stack.stack[stack.length] = var;
+			fputs("  addi $sp, $sp, -4\n", fp);
+			memset(str, 0, sizeof(str));
+			sprintf(str, "  sw %s, 0($sp)\n", regs[var->reg_no].name);
+			fputs(str, fp);
+			stack.stack[stack.length].var = var;
+			stack.stack[stack.length++].old = regs[var->reg_no].old;
+//			stack.old[stack.length++] = regs[var->reg_no].old;
+			regs[var->reg_no].old = 0;
+			regs[var->reg_no].var = NULL;
+		}
+		var = var->next;
+	}
+	varlist = NULL;
+}
+
+void loadVarlist(FILE* fp) {
+	VarDescripter* var = varlist;
+	while (var != NULL) {
+		varlist = var->next;
+		free(var);
+		var = varlist;
+	}
+
+	char str[32];
+	for (int i = stack.length - 1; i >= 0; i--) {
+		var = stack.stack[i].var;
+		if (var == NULL) continue;
+
+		var->next = varlist;
+		varlist = var;
+
+		memset(str,0, sizeof(str));
+		sprintf(str, "  lw %s, 0($sp)\n", regs[var->reg_no].name);
+		fputs(str, fp);
+		fputs("  addi $sp, $sp, 4\n", fp);
+		regs[var->reg_no].var = var;
+		regs[var->reg_no].old = stack.stack[i].old;
+	}
+
+	stack.length = 0;
 }
 
 void genMIPS(InterCode ir, FILE* fp) {
@@ -186,17 +299,194 @@ void genMIPS(InterCode ir, FILE* fp) {
 		}
 		case IR_ARG:
 			if (args < 4) args++;
-			
+			getReg(ir->code.u.singleOP.op, fp);	
 			break;
-			
 		case IR_CALL:
-			/* TODO */
-			break;
+		{
+			char str[32];
+			memset(str, 0, sizeof(str));
+			int off = -4 * args - 4;
+			sprintf(str, "  addi $sp, $sp, %d\n", off);
+			fputs(str, fp);
+			fputs("  sw $ra, 0($sp)\n", fp);
 			
-		case IR_FUNCTION:
-			/* TODO */
-			break;
+			switch (args) {
+				case 1:
+				{
+					fputs("  sw $a0, 4($sp)\n", fp);
+					InterCode prev = ir->prev;
+					int reg_no = getReg(prev->code.u.singleOP.op, fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  move $a0 %s\n", regs[reg_no].name);
+					fputs(str, fp);
 
+					storeVarlist(fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  jal %s\n", ir->code.u.doubleOP.right->u.name);
+					fputs(str, fp);
+					loadVarlist(fp);
+
+					fputs("  lw $a0, 4($sp)\n", fp);
+					fputs("  lw $ra, 0($sp)\n", fp);
+					fputs("  addi $sp, $sp, 8\n", fp);
+					break;
+				}
+
+				case 2:
+				{
+					fputs("  sw $a0, 4($sp)\n", fp);
+					fputs("  sw $a1, 8($sp)\n", fp);
+
+					char str[32];
+					memset(str, 0, sizeof(str));
+
+					InterCode prev1 = ir->prev;
+					int reg_no1 = getReg(prev1->code.u.singleOP.op, fp);
+					sprintf(str, "  move $a0 %s\n", regs[reg_no1].name);
+					fputs(str, fp);
+
+					InterCode prev2 = prev1->prev;
+					int reg_no2 = getReg(prev2->code.u.singleOP.op, fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  move $a1 %s\n", regs[reg_no2].name);
+					fputs(str, fp);
+
+					storeVarlist(fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  jal %s\n", ir->code.u.doubleOP.right->u.name);
+					fputs(str, fp);
+					loadVarlist(fp);
+					fputs("  lw $a1, 8($sp)\n", fp);
+					fputs("  lw $a0, 4($sp)\n", fp);
+					fputs("  lw $ra, 0($sp)\n", fp);
+					fputs("  addi $sp, $sp, 12\n", fp);
+					break;
+				}
+				case 3:
+				{
+					fputs("  sw $a0, 4($sp)\n", fp);
+					fputs("  sw $a1, 8($sp)\n", fp);
+					fputs("  sw $a2, 12($sp)\n", fp);
+
+					char str[32];
+					memset(str, 0, sizeof(str));
+
+					InterCode prev1 = ir->prev;
+					int reg_no1 = getReg(prev1->code.u.singleOP.op, fp);
+					sprintf(str, "  move $a0 %s\n", regs[reg_no1].name);
+					fputs(str, fp);
+
+					InterCode prev2 = prev1->prev;
+					int reg_no2 = getReg(prev2->code.u.singleOP.op, fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  move $a1 %s\n", regs[reg_no2].name);
+					fputs(str, fp);
+
+					InterCode prev3 = prev2->prev;
+					int reg_no3 = getReg(prev3->code.u.singleOP.op, fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  move $a2 %s\n", regs[reg_no3].name);
+					fputs(str, fp);
+
+					storeVarlist(fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  jal %s\n", ir->code.u.doubleOP.right->u.name);
+					fputs(str, fp);
+					loadVarlist(fp);
+
+					fputs("  lw $a2, 12($sp)\n", fp);
+					fputs("  lw $a1, 8($sp)\n", fp);
+					fputs("  lw $a0, 4($sp)\n", fp);
+					fputs("  lw $ra, 0($sp)\n", fp);
+					fputs("  addi $sp, $sp, 16\n", fp);
+					break;
+				}
+				case 4:
+				{
+					fputs("  sw $a0, 4($sp)\n", fp);
+					fputs("  sw $a1, 8($sp)\n", fp);
+					fputs("  sw $a2, 12($sp)\n", fp);
+					fputs("  sw $a3, 16($sp)\n", fp);
+
+					char str[32];
+					memset(str, 0, sizeof(str));
+
+					InterCode prev1 = ir->prev;
+					int reg_no1 = getReg(prev1->code.u.singleOP.op, fp);
+					sprintf(str, "  move $a0 %s\n", regs[reg_no1].name);
+					fputs(str, fp);
+
+					InterCode prev2 = prev1->prev;
+					int reg_no2 = getReg(prev2->code.u.singleOP.op, fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  move $a1 %s\n", regs[reg_no2].name);
+					fputs(str, fp);
+
+					InterCode prev3 = prev2->prev;
+					int reg_no3 = getReg(prev3->code.u.singleOP.op, fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  move $a2 %s\n", regs[reg_no3].name);
+					fputs(str, fp);
+
+					InterCode prev4 = prev3->prev;
+					int reg_no4 = getReg(prev3->code.u.singleOP.op, fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  move $a3 %s\n", regs[reg_no4].name);
+					fputs(str, fp);
+
+					storeVarlist(fp);
+					memset(str, 0, sizeof(str));
+					sprintf(str, "  jal %s\n", ir->code.u.doubleOP.right->u.name);
+					fputs(str, fp);
+					loadVarlist(fp);
+
+					fputs("  lw $a3, 16($sp)\n", fp);
+					fputs("  lw $a2, 12($sp)\n", fp);
+					fputs("  lw $a1, 8($sp)\n", fp);
+					fputs("  lw $a0, 4($sp)\n", fp);
+					fputs("  lw $ra, 0($sp)\n", fp);
+					fputs("  addi $sp, $sp, 20\n", fp);
+					break;
+				}
+			}
+
+			args = 0;
+			int reg_no = getReg(ir->code.u.doubleOP.left, fp);
+			memset(str, 0, sizeof(str));
+			sprintf(str, "  move %s, $v0\n", regs[reg_no].name);
+			fputs(str, fp);
+			break;
+		}	
+		case IR_FUNCTION:
+		{
+			char str[32];
+			memset(str, 0, sizeof(str));
+			sprintf(str, "\n%s:\n", ir->code.u.singleOP.op->u.name);
+			fputs(str, fp);
+
+			VarDescripter *var = varlist;
+			while (var != NULL) {
+				varlist = var->next;
+				free(var);
+				var = varlist;
+			}
+
+			for (int i = 0; i < 20; i++) {
+				regs[i].old = 0;
+				regs[i].var = NULL;
+			}
+
+			int i = 0, reg_no;
+			InterCode ir_t = ir->next;
+			while (ir_t != NULL && ir_t->code.kind == IR_PARAM) {
+				reg_no = getReg(ir_t->code.u.singleOP.op, fp);
+				memset(str, 0, sizeof(str));
+				sprintf(str, "  move %s, $a%d\n", regs[reg_no].name, i++);
+				fputs(str, fp);
+				ir_t = ir_t->next;
+			}
+			break;
+		}
 		case IR_READ:
 		{
 			fputs("  addi $sp, $sp, -4\n", fp);
@@ -226,74 +516,6 @@ void genMIPS(InterCode ir, FILE* fp) {
 			break;
 		}
 	}
-}
-
-int getReg(Operand op, FILE* fp) {
-	char name[4];
-	memset(name, 0,sizeof(name));
-
-	VarDescripter* var = varlist;
-	while (var != NULL) {
-		if (op->kind == var->op->kind) {
-			if (op->kind == TEMP && var->op->u.var_no == op->u.var_no) {
-				sprintf(name, "t%d", op->u.var_no);
-				break;
-			}
-		
-			if (op->kind == VARIABLE && var->op->u.var_no == op->u.var_no) {
-				sprintf(name, "v%d", op->u.var_no);
-				break;
-			}
-		}
-		
-		var = var->next;
-	}
-
-	if (var == NULL) {
-		var = (VarDescripter*)malloc(sizeof(VarDescripter));
-		memset(var, 0, sizeof(VarDescripter));
-		if (var == NULL) {
-			printf("getReg error!\n");
-			exit(1);
-		}
-		var->op = op;
-		var->reg_no = -1;
-		if (op->kind == TEMP || op->kind == VARIABLE) {
-			var->next = varlist;
-			varlist = var;
-		}
-	}
-
-	if (var->reg_no == -1) {
-		int reg_no = -1;
-		for (int i = 0; i < 20; i++)
-			if (regs[i].var != NULL) regs[i].old++;
-
-		for (int i = 0; i < 20; i++)
-			if (regs[i].var == NULL) {
-				reg_no = i; break;
-			}
-
-		if (reg_no == -1) {
-			int max = -1;
-			for (int i = 0; i < 20; i++)
-				if (regs[i].old > max) {
-					max = regs[i].old;
-					reg_no = i;
-				}
-		}
-
-		var->reg_no = reg_no;
-		regs[reg_no].var = var;
-		if (var->op->kind == CONSTANT) {
-			char str[32];
-			memset(str, 0, sizeof(str));
-			sprintf(str, "  li %s, %d\n", regs[var->reg_no].name, var->op->u.value);
-			fputs(str, fp);
-		}
-	}
-	regs[var->reg_no].old = 0;
-	return var->reg_no;
 }
 
 void printMIPS(InterCode irList) {
@@ -328,8 +550,6 @@ void printMIPS(InterCode irList) {
 	fputs("  syscall\n", fp);
 	fputs("  move $v0, $0\n", fp);
 	fputs("  jr $ra\n\n", fp);
-
-	fputs("main:\n", fp);
 
 	while (irList != NULL) {
 		genMIPS(irList, fp);
